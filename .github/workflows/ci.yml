@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [dev, master]
+
+jobs:
+  build-linux-gcc:
+    runs-on: ubuntu-latest
+    env:
+      CC: gcc
+      CXX: g++
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compilation
+        run: make -B
+
+  build-linux-clang:
+    runs-on: ubuntu-latest
+    env:
+      CC: clang
+      CXX: clang++
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compilation
+        run: make -B
+
+  lint-and-run-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Lint
+        run: make lint
+      - name: Run tests
+        run: make run_tests
