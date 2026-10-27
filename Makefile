@@ -4,6 +4,9 @@ CXX = c++
 CXXFLAGS = -Wall -Wextra -Werror -std=c++98
 CPPFLAGS = -Iinclude
 
+# for linter only
+HEADERS =
+
 SRCS = src/main.cpp \
 
 TESTS_SRCS = tests/test_example.cpp\
@@ -12,6 +15,8 @@ OBJS = $(SRCS:src/%.cpp=obj/%.o)
 DEPS = $(OBJS:.o=.d)
 TESTS = $(TESTS_SRCS:tests/%.cpp=tests/bin/%.out)
 TESTS_OBJS = $(filter-out obj/main.o,$(OBJS))
+
+.PHONY: all clean fclean re test_cgi tests
 
 all: $(NAME)
 debug:
@@ -52,4 +57,5 @@ fclean: clean
 
 re: fclean all
 
-.PHONY: all clean fclean re test_cgi tests
+lint:
+	clang-format --dry-run --Werror $(HEADERS) $(SRCS)
