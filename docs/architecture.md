@@ -82,7 +82,7 @@ Le but est de séparer completement le protocole HTTP et le polling en deux mini
 Ainsi cela permet d'éviter un graphe de dépendance complexe.
 Autrement dit le but est d'avoir des dépendances qui suivent une structure hierarchique en arbre plutôt qu'un graphe ou tout est un peu mélangé.
 
-Dans ce modèle, la gestion du CGI est un simple handler de requete comme nimporte quel autre (une implementation de `IRequestHandler` dans notre cas).
+Dans ce modèle, la gestion du CGI est un simple handler de requete comme nimporte quel autre (une implementation de `ARequestHandler` dans notre cas).
 
 Donc on se retrouve avec les deux librairies et une application (le server web) qui utilisent les differentes fonctionalités pour faire son job.
 
@@ -106,11 +106,11 @@ Donc on se retrouve avec les deux librairies et une application (le server web) 
 - `HTTP::RequestParser` - parsing des requête incrémentale (possède aussi une state machine), dechunking et normalisation
 **Logique**
 - `HTTP::ARequestHandler` - utilisé par le router pour dispatch les différentes requètes aux differents handlers
-- `HTTP::StaticFileHandler` - implementation de `HTTP::IRequestHandler`
-- `HTTP::RedirectHandler` - implementation de `HTTP::IRequestHandler`
-- `HTTP::UploadHandler` - implementation de `HTTP::IRequestHandler`
-- `HTTP::CGIHandler`- implementation de `HTTP::IRequestHandler` 
-- `HTTP::DeleteHandler`- implementation de `HTTP::IRequestHandler` 
+- `HTTP::StaticFileHandler` - implementation de `HTTP::ARequestHandler`
+- `HTTP::RedirectHandler` - implementation de `HTTP::ARequestHandler`
+- `HTTP::UploadHandler` - implementation de `HTTP::ARequestHandler`
+- `HTTP::CGIHandler`- implementation de `HTTP::ARequestHandler` 
+- `HTTP::DeleteHandler`- implementation de `HTTP::ARequestHandler` 
 
 L'application principale elle se retrouverais dans ces classes :
 - `Server` - classes principale possedant le scheduler, les config, le router et handlers
@@ -142,7 +142,7 @@ Lexique :
 - <|-- signifie un lien `is a` (Heritage)
 - ..> signifie une interaction indirecte
 
-```
+```mermaid
 classDiagram
     direction LR
 
