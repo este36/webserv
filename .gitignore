@@ -1,0 +1,7 @@
+**/*.o
+**/*.out
+**/*.DS_Store
+**/*.pdf
+obj/
+tests/bin/
+webserv
