@@ -8,15 +8,16 @@ ColumnLimit: 0
 
 BreakBeforeBraces: Allman
 
-PointerAlignment: Right
+PointerAlignment: Left
+ReferenceAlignment: Right
 DerivePointerAlignment: false
 SpaceBeforeParens: ControlStatements
 
-AllowShortFunctionsOnASingleLine: Empty
+AllowShortFunctionsOnASingleLine: All
 AllowShortIfStatementsOnASingleLine: AllIfsAndElse
-AllowShortBlocksOnASingleLine: Never
-AllowShortLoopsOnASingleLine: false
+AllowShortBlocksOnASingleLine: Always
+AllowShortLoopsOnASingleLine: true
 
 KeepEmptyLinesAtTheStartOfBlocks: false
 
-SortIncludes: CaseSensitive
+SortIncludes: Never

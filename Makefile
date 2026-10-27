@@ -2,7 +2,7 @@ NAME = webserv
 
 CXX = c++
 CXXFLAGS = -Wall -Wextra -Werror -std=c++98
-CPPFLAGS = -Iinclude
+INCLUDES = -Iinclude
 
 # for linter only
 HEADERS =
@@ -34,7 +34,7 @@ tests: $(TESTS_OBJS) $(TESTS)
 
 obj/%.o: src/%.cpp
 	@mkdir -p $(dir $@)
-	$(CXX) $(CXXFLAGS) $(CPPFLAGS) -MMD -MP -c $< -o $@
+	$(CXX) $(CXXFLAGS) $(INCLUDES) -MMD -MP -c $< -o $@
 
 -include $(DEPS)
 
@@ -43,7 +43,7 @@ run_tests: $(TESTS_OBJS) $(TESTS)
 
 tests/bin/%.out: tests/%.cpp
 	@mkdir -p $(dir $@)
-	$(CXX) $(CXXFLAGS) $(CPPFLAGS) $(TESTS_OBJS) $< -o $@
+	$(CXX) $(CXXFLAGS) $(INCLUDES) $(TESTS_OBJS) $< -o $@
 
 test_cgi: tests/bin/test_cgi.out
 	./tests/bin/test_cgi.out
@@ -58,4 +58,9 @@ fclean: clean
 re: fclean all
 
 lint:
-	clang-format --dry-run --Werror $(HEADERS) $(SRCS)
+	clang-tidy $(HEADERS) $(SRCS) -- $(CXXFLAGS) -Iinclude
+	clang-format --dry-run --Werror $(SRCS) $(HEADERS)
+
+fix-lint:
+	clang-tidy --fix $(SRCS) -- $(CXXFLAGS) -Iinclude
+	clang-format -i $(SRCS) $(HEADERS)
