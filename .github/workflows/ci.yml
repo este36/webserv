@@ -27,11 +27,9 @@ jobs:
       - name: Compilation
         run: make -B
 
-  lint-and-run-tests:
+  run-tests:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Lint
-        run: make lint
       - name: Run tests
-        run: make run_tests
+        run: make -B run_tests

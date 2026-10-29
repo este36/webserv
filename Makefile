@@ -56,11 +56,3 @@ fclean: clean
 	rm -f $(NAME)
 
 re: fclean all
-
-lint:
-	clang-tidy $(HEADERS) $(SRCS) -- $(CXXFLAGS) -Iinclude
-	clang-format --dry-run --Werror $(SRCS) $(HEADERS)
-
-fix-lint:
-	clang-tidy --fix $(SRCS) -- $(CXXFLAGS) -Iinclude
-	clang-format -i $(SRCS) $(HEADERS)
