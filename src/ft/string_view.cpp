@@ -1,9 +1,9 @@
 #include "ft/string_view.hpp"
 
+#include <cstring>
+
 namespace ft
 {
-
-#include <cstring>
 
 string_view::string_view() : _buf(NULL), _len(0) {}
 string_view::~string_view() {}
