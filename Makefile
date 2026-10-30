@@ -4,12 +4,18 @@ CXX = c++
 CXXFLAGS = -Wall -Wextra -Werror -std=c++98
 INCLUDES = -Iinclude
 
-# for linter only
-HEADERS =
+LIB_FT_SRCS =\
+	src/ft/HashFn.cpp \
+	src/ft/Profiler.cpp \
+	src/ft/StringBuilder.cpp \
+	src/ft/string_view.cpp \
 
-SRCS = src/main.cpp \
+SRCS =\
+	$(LIB_FT_SRCS) \
+	src/main.cpp \
 
-TESTS_SRCS = tests/test_example.cpp\
+TESTS_SRCS =\
+	tests/test_lib.cpp\
 
 OBJS = $(SRCS:src/%.cpp=obj/%.o)
 DEPS = $(OBJS:.o=.d)
