@@ -13,6 +13,9 @@ LIB_FT_SRCS =\
 SRCS =\
 	$(LIB_FT_SRCS) \
 	src/main.cpp \
+	src/Config.cpp \
+	src/LocationConfig.cpp \
+	src/ServerConfig.cpp \
 
 TESTS_SRCS =\
 	tests/test_lib.cpp\
