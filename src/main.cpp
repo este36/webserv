@@ -1,9 +1,29 @@
 #include <fstream>
 #include <iostream>
 #include <string>
-
+#include "ConfigParser.hpp"
 
 int main()
+{
+	try
+	{
+		ConfigParser 	parser;
+		Config			config = parser.parse("config/default.conf");
+
+		std::cout << "Parsing done!" << std::endl;
+	}
+	catch(const std::exception& e)
+	{
+		std::cerr << "Error: " << e.what() << '\n';
+		return 1;
+	}
+	
+	return 0;
+}
+
+
+
+/*int main()
 {
 	std::ifstream file("config/default.conf");
 
@@ -22,4 +42,4 @@ int main()
 	file.close();
 
 	return 0;
-}
+}*/

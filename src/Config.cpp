@@ -3,3 +3,6 @@
 //comment: only server agrupation
 Config::Config()
 {}
+
+Config::~Config()
+{}
