@@ -1,8 +1,5 @@
 #include "ConfigParser.hpp"
 #include <stdexcept>							//comment: only for rutine_error, for the moment, mybe I will change later
-#include <cctype>
-#include <iostream>
-#include <stdlib.h>								//comment: c'est pour atoi
 
 ConfigParser::ConfigParser()
 {}
@@ -126,26 +123,30 @@ void ConfigParser::_parseLocation(size_t &i, std::vector<std::string> &token, Se
 }
 
 
-//comment: PUBLIC METOHDS
+//comment: -----------------------------------------------------					PUBLIC METOHDS
+
 
 Config ConfigParser::parse(const std::string &file_name)
 {
 	std::ifstream file(file_name.c_str());
 
-	if (!file.is_open())										//comment: opening file
+	if (!file.is_open())												//comment: opening file
 		throw std::runtime_error("Can't open config file");
 
 	std::string content;
 	std::string line;
 
-	while (std::getline(file, line))							//comment: saving file
+	while (std::getline(file, line))									//comment: saving file
 		content+= line + '\n';
 		
 	file.close();
 		
 	Config config;
 
-	std::vector<std::string> tokens = _tokenizer(content);		//comment: tokenizing data
+	std::vector<std::string> tokens = _tokenizer(content);				//comment: tokenizing data
+	
+	if (!ConfigParser::_controlParserTokens(tokens))
+		throw std::runtime_error("Invalid configuration structure");	//comment: validation data
 
 	size_t i = 0;
 	while (i < tokens.size())

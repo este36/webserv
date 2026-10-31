@@ -7,7 +7,7 @@
 
 class LocationConfig
 {
-	public:									//comment: for de moment I make all public, later we can make getters and setters
+	public:									//comment: for the moment I make all public, later we can make getters and setters
 		LocationConfig	();
 		~LocationConfig	();
 

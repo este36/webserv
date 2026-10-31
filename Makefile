@@ -17,6 +17,7 @@ SRCS =\
 	src/LocationConfig.cpp \
 	src/ServerConfig.cpp \
 	src/ConfigParser.cpp \
+	src/ConfigTokensValidation.cpp \
 
 TESTS_SRCS =\
 	tests/test_lib.cpp\
