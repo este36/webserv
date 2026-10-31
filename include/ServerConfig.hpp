@@ -12,9 +12,10 @@ class ServerConfig
 		ServerConfig	();
 		~ServerConfig	();
 
-		int 				port;
-		size_t				client_name_body_max;
-		std::string 		server_name;
+		int 							port;
+		size_t							client_name_body_max;
+		std::string 					server_name;
+		std::vector<LocationConfig>		location;
 		
 };
 

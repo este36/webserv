@@ -18,7 +18,7 @@ class LocationConfig
 		std::string							redirect_url;
 		int									redirect_code;
 		bool								auto_index;
-		//containers
+
 		std::vector<std::string> 			accepts_methods;
 		std::map<std::string, std::string>	cgis;
 };

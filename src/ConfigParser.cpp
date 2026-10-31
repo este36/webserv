@@ -2,6 +2,7 @@
 #include <stdexcept>							//comment: only for rutine_error, for the moment, mybe I will change later
 #include <cctype>
 #include <iostream>
+#include <stdlib.h>								//comment: c'est pour atoi
 
 ConfigParser::ConfigParser()
 {}
@@ -38,11 +39,9 @@ std::vector<std::string> ConfigParser::_tokenizer(const std::string &content)
 		}
 		else if (content[i] == '{' || content[i] == '}' || content[i] == ';')
 		{
-
 			token.push_back(std::string(1, content[i]));
 
 			i++;
-
 		}
 		else
 		{
@@ -57,6 +56,75 @@ std::vector<std::string> ConfigParser::_tokenizer(const std::string &content)
 
 	return token;
 }
+
+//pasage d'information vers les servers (vector avec tous les servers)
+void ConfigParser::_parseServer(size_t &i, std::vector<std::string> &token, Config &config)
+{
+	ServerConfig server;
+	i += 2;														//comment: sauter le mot "server" et "{"
+
+	while(i < token.size() && token[i] != "}")
+	{
+		if (token[i] == "listen")
+		{
+			server.port = atoi(token[++i].c_str());
+			i++;												//comment: sauter ";"
+		}
+		else if (token[i] == "server_name")
+		{
+			server.server_name = token[++i];
+			i++;												//comment: sauter ";"
+		}
+		else if (token[i] == "location")
+		{
+			_parseLocation(i, token, server);
+		}
+		else
+			i++;
+	}
+
+	if (token[i] == "}")							//comment: sauter dernière "}"
+		i++;
+	else
+		throw std::runtime_error("Error: SERVER configuration isn't close");
+
+	config.servers.push_back(server);
+}
+
+void ConfigParser::_parseLocation(size_t &i, std::vector<std::string> &token, ServerConfig &server)
+{
+	LocationConfig location;
+
+	i += 2;														//comment: saluter "\" et "{"
+
+	while(i < token.size() && token[i] != "}")
+	{
+		if (token[i] == "root")
+		{
+			location.root = token[++i];
+			i++;												//comment: sauter ";"
+		}
+		else if (token[i] == "index")
+		{
+			location.index = token[++i];
+			i++;												//comment: sauter ";"
+		}
+		else if (token[i] == "allow_methods")
+		{
+			location.accepts_methods.push_back(token[++i]);
+			i++;												//comment: sauter ";"
+		}
+		else
+			i++;
+	}
+	if (token[i] == "}")										//comment: sauter dernière "}"
+		i++;
+	else
+		throw std::runtime_error("Error: LOCATION configuration isn't close");	
+
+	server.location.push_back(location);
+}
+
 
 //comment: PUBLIC METOHDS
 
@@ -79,10 +147,14 @@ Config ConfigParser::parse(const std::string &file_name)
 
 	std::vector<std::string> tokens = _tokenizer(content);		//comment: tokenizing data
 
-	for(size_t i = 0; i < tokens.size(); i++)
-		std::cout << "[" << tokens[i] << "]" << std::endl;
-
-	//comment: parsing logic will go here. A server config with: port, client_body_machins... et server_name
+	size_t i = 0;
+	while (i < tokens.size())
+	{
+		if (tokens[i] == "server")
+			_parseServer(i, tokens, config);
+		else
+			i++;
+	}
 
 	return config;
 }

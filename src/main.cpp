@@ -10,6 +10,10 @@ int main()
 		ConfigParser 	parser;
 		Config			config = parser.parse("config/default.conf");
 
+		std::cout << "Server: " 	<< config.servers[0].server_name << std::endl;
+		std::cout << "Port: " 		<< config.servers[0].port << std::endl;
+		std::cout << "Location: " 	<< config.servers[0].location.size() << std::endl;
+
 		std::cout << "Parsing done!" << std::endl;
 	}
 	catch(const std::exception& e)
@@ -20,26 +24,3 @@ int main()
 	
 	return 0;
 }
-
-
-
-/*int main()
-{
-	std::ifstream file("config/default.conf");
-
-	if (!file.is_open())
-		return (std::cerr << "Error: Can't open config/default.conf file" << std::endl, 1);
-
-	std::string 	line;
-	int				line_num = 1;
-
-	while(std::getline(file, line))
-	{
-		std::cout << line_num << ": " << line << std::endl;
-		++line_num;
-	}
-
-	file.close();
-
-	return 0;
-}*/
