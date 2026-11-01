@@ -2,6 +2,8 @@
 #define MESSAGE_HPP
 
 #include <string>
+#include <vector>
+#include <ostream>
 
 #define CRLF "\r\n"
 
@@ -21,43 +23,18 @@ void serialize_headers(std::ostream& out, const Headers& headers);
 
 struct Message
 {
+	// even though the body is a common property of requests and responses,
+	// they are not representated in the memory the same way.
+	// so each one have their own version of `body`
+
 	int			version_major;
 	int			version_minor;
 	Headers		headers;
-	std::string	body;
+
+	Message();
 };
 
 void serialize_version(std::ostream& out, const Message& message);
-
-enum MethodEnum
-{
-	METHOD_UNSET,
-	METHOD_GET,
-	METHOD_POST,
-	METHOD_DELETE,
-	METHOD_MAX
-};
-
-std::ostream& operator<<(std::ostream& out, const MethodEnum& method);
-
-struct Request : public Message
-{
-	MethodEnum	method;
-	URL			uri;
-};
-
-std::ostream& operator<<(std::ostream& out, const Request& request);
-
-struct Response : public Message
-{
-	int status_code;
-
-	std::string serialize();
-};
-
-std::string reason_phrase(int status_code);
-
-std::ostream& operator<<(std::ostream& out, const Response& response);
 
 }
 
