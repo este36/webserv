@@ -15,7 +15,12 @@ Response::~Response()
 		delete _body;
 }
 
-void Response::set_body(AStreamableBody *sb) { _body = sb; }
+void Response::set_body(AStreamableBody *sb)
+{
+	if (_body != NULL && sb != _body)
+		throw std::runtime_error("body already set");
+	_body = sb;
+}
 const AStreamableBody *Response::get_body() const { return _body; }
 
 std::ostream& operator<<(std::ostream& out, const Response& response)
