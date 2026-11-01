@@ -24,6 +24,7 @@ SRCS =\
 
 TESTS_SRCS =\
 	tests/test_lib.cpp\
+	tests/test_url.cpp\
 
 OBJS = $(SRCS:src/%.cpp=obj/%.o)
 DEPS = $(OBJS:.o=.d)
