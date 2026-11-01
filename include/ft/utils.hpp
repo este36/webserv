@@ -10,7 +10,7 @@ namespace ft
 template <typename T>
 std::string to_string(const T& val)
 {
-	std::osstream oss;
+	std::ostringstream oss;
 	oss << val;
 	return oss.str();
 }
