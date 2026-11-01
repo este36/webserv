@@ -222,7 +222,7 @@ std::ostream& operator<<(std::ostream& out, const URL& url)
 
 	ss << url.host << url.path;
 	if (!url.query.empty())
-		ss << "?" << URL::encode(url.query);
+		ss << "?" << url.query;
 	return out << ss.str();
 }
 
