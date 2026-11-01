@@ -12,9 +12,16 @@
 namespace http
 {
 
+static bool is_valid_url_byte(unsigned char c)
+{
+	return c >= 0x20 && c <= 0x7E;
+}
+
 std::pair<URL, bool> URL::create_from_request_target(const std::string& src)
 {
 	URL url;
+
+	url.path = "/";
 	ft::string_view s(src);
 
 	if (s.find('#') != ft::string_view::npos)
@@ -23,7 +30,8 @@ std::pair<URL, bool> URL::create_from_request_target(const std::string& src)
 	ft::string_view::const_iterator start = s.begin();
 	ft::string_view::const_iterator path_start = start;
 
-	if (s.substr(0, 4) == "http")
+	ft::string_view protocol = s.substr(0, 4);
+	if (protocol == "http" || protocol == "HTTP")
 	{
 		ft::string_view::const_iterator it = start + 4;
 		if (it != s.end() && *it == 's')
@@ -31,9 +39,18 @@ std::pair<URL, bool> URL::create_from_request_target(const std::string& src)
 		if (s.end() - it < 3 || s.substr(it - start, 3) != "://")
 			return std::make_pair(url, false);
 		it += 3;
+
+		if (!std::isalnum(*it))
+			return std::make_pair(url, false);
+
 		ft::string_view::const_iterator auth_end = std::find(it, s.end(), '/');
+		if (auth_end == s.end())
+			auth_end = std::find(it, s.end(), '?');
+
 		url.host = s.substr(it - start, auth_end - it).str();
 		path_start = auth_end;
+		if (s.end() == auth_end)
+			return std::make_pair(url, true);
 	}
 	else if (s.empty() || s[0] != '/')
 		return std::make_pair(url, false);
@@ -116,8 +133,12 @@ std::pair<std::string, bool> URL::decode(const std::string& s)
 				return std::make_pair("", false);
 			percent_code |= tmp;
 
-			c = static_cast<char>(percent_code);
+			c = static_cast<unsigned char>(percent_code);
 		}
+		else if (!is_valid_url_byte(c))
+			return std::make_pair("", false);
+		if (c == 0 || c == '\r' || c == '\n')
+			return std::make_pair("", false);
 		res += c;
 	}
 	return std::make_pair(res, true);
@@ -189,14 +210,20 @@ std::pair<std::string, bool> URL::normalize(const std::string& s)
 
 	for (std::vector<std::string>::iterator it = segments.begin(); it != segments.end(); ++it)
 		res += "/" + *it;
+	if (s.back() == '/')
+		res += "/";
 
 	return std::make_pair(res, true);
 }
 
 std::ostream& operator<<(std::ostream& out, const URL& url)
 {
-	out << url.host << url.path << url.query;
-	return out;
+	std::stringstream ss;
+
+	ss << url.host << url.path;
+	if (!url.query.empty())
+		ss << "?" << URL::encode(url.query);
+	return out << ss.str();
 }
 
 }

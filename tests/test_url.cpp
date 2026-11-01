@@ -294,5 +294,59 @@ int main(void)
 		if (!do_create_test(create_err_tests[i])) return 1;
 	std::cout << "OK!" << std::endl;
 
+	TestData decode_err_regression_tests[] = {
+		{"%00", ""},
+		{"%0D", ""},
+		{"%0A", ""},
+	};
+
+	std::cout << "Decoding control-character regression tests\n";
+	count = sizeof(decode_err_regression_tests) / sizeof(TestData);
+	for (std::size_t i = 0; i < count; ++i)
+		if (!do_test(decode_err_regression_tests[i], TEST_DECODE_ERR)) return 1;
+	std::cout << "OK!\n";
+
+	TestData normalize_regression_tests[] = {
+		{"/a/..", "/"},
+		{"/a/b/..", "/a"},
+		{"/a/b/../", "/a/"},
+		{"/a/b/../c/", "/a/c/"},
+		{"/a/..hidden", "/a/..hidden"},
+		{"/a/.../b", "/a/.../b"},
+	};
+
+	std::cout << "Normalize regression tests\n";
+	count = sizeof(normalize_regression_tests) / sizeof(TestData);
+	for (std::size_t i = 0; i < count; ++i)
+		if (!do_test(normalize_regression_tests[i], TEST_NORMALIZE_OK)) return 1;
+	std::cout << "OK!\n";
+
+	CreateTestData create_regression_tests[] = {
+		{"http://example.com?x=1", true, "/", "example.com", "x=1"},
+		{"https://example.com?x=1", true, "/", "example.com", "x=1"},
+		{"HTTP://example.com/a", true, "/a", "example.com", ""},
+		{"/a/b/../", true, "/a/", "", ""},
+	};
+
+	std::cout << "create_from_request_target regression tests\n";
+	count = sizeof(create_regression_tests) / sizeof(CreateTestData);
+	for (std::size_t i = 0; i < count; ++i)
+		if (!do_create_test(create_regression_tests[i])) return 1;
+	std::cout << "OK!\n";
+
+	CreateTestData create_err_regression_tests[] = {
+		{"http:///admin", false, "", "", ""},
+		{"http://?x=1", false, "", "", ""},
+		{"/%00", false, "", "", ""},
+		{"/%0D", false, "", "", ""},
+		{"/%0A", false, "", "", ""},
+	};
+
+	std::cout << "create_from_request_target control-character regression tests\n";
+	count = sizeof(create_err_regression_tests) / sizeof(CreateTestData);
+	for (std::size_t i = 0; i < count; ++i)
+		if (!do_create_test(create_err_regression_tests[i])) return 1;
+	std::cout << "OK!" << std::endl;
+
 	return 0;
 }
