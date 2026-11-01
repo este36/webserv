@@ -3,6 +3,8 @@
 namespace http
 {
 
+Request::Request() : method(METHOD_UNSET) {}
+
 std::ostream& operator<<(std::ostream& out, const MethodEnum method)
 {
 	switch(method)

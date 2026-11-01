@@ -17,9 +17,7 @@ void serialize_headers(std::ostream& out, const Headers& headers)
 
 void serialize_version(std::ostream& out, const Message& message)
 {
-	out << "HTTP/" << message.version_major;
-	if (message.version_minor)
-		out << "." << message.version_minor;
+	out << "HTTP/" << message.version_major << "." << message.version_minor;
 }
 
 }

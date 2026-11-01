@@ -23,8 +23,9 @@ std::ostream& operator<<(std::ostream& out, const Response& response)
 	const AStreamableBody *body = response.get_body();
 
 	serialize_version(out, response);
-	out << " " << response.status_code << " " << response.status_code << CRLF;
+	out << " " << response.status_code << " " << reason_phrase(response.status_code) << CRLF;
 	serialize_headers(out, response.headers);
+	out << CRLF;
 	if (body != NULL && body->has_bytes())
 	{
 		std::string body_out;

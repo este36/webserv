@@ -23,6 +23,9 @@ struct Request : public Message
 	MethodEnum	method;
 	URL			uri;
 	std::string	body;
+
+	// to ensure 0 initialized
+	Request();
 };
 
 std::ostream& operator<<(std::ostream& out, const Request& request);
