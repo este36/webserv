@@ -9,9 +9,17 @@ LIB_FT_SRCS =\
 	src/ft/Profiler.cpp \
 	src/ft/StringBuilder.cpp \
 	src/ft/string_view.cpp \
+	src/ft/utils.cpp \
+
+LIB_HTTP_SRCS =\
+	src/http/Message.cpp \
+	src/http/Request.cpp \
+	src/http/Response.cpp \
+	src/http/URL.cpp \
 
 SRCS =\
 	$(LIB_FT_SRCS) \
+	$(LIB_HTTP_SRCS) \
 	src/main.cpp \
 
 TESTS_SRCS =\
