@@ -1,5 +1,7 @@
 #include "Fd.hpp"
 
+using namespace net;
+
 Fd::Fd(int fd = -1) _fd(fd) {}
 
 Fd::~Fd();
@@ -22,4 +24,17 @@ void Fd::release()
 	int tmp = _fd;
 	_fd = -1;
 	return tmp;
+}
+
+bool Fd::set_non_blocking()
+{
+	int flags = fcntl(_fd, F_GETFL, 0);
+
+	if (flags == -1)
+		return false;
+
+	if (fcntl(_fd, F_SETFL, flags | O_NONBLOCK) == -1)
+		return false;
+
+	return true;
 }

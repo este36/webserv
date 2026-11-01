@@ -2,6 +2,7 @@
 #define NET_FD
 
 namespace net
+{
 
 class Fd
 {
@@ -18,6 +19,8 @@ public:
 	int get() const;
 	void reset(int fd = -1);
 	int release();
+
+	bool set_non_blocking();
 };
 
 }
