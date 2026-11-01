@@ -1,8 +1,8 @@
 #ifndef UTILS_HPP
 #define UTILS_HPP
 
-#include <ostream>
-#include <std::string>
+#include <sstream>
+#include <string>
 
 namespace ft
 {
