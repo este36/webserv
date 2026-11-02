@@ -17,9 +17,16 @@ LIB_HTTP_SRCS =\
 	src/http/Response.cpp \
 	src/http/URL.cpp \
 
+LIB_NET_SRCS =\
+	src/net/Fd.cpp \
+	src/net/PollTask.cpp \
+	src/net/TCPClient.cpp \
+	src/net/TCPListener.cpp \
+
 SRCS =\
 	$(LIB_FT_SRCS) \
 	$(LIB_HTTP_SRCS) \
+	$(LIB_NET_SRCS) \
 	src/main.cpp \
 	src/Config.cpp \
 	src/LocationConfig.cpp \
