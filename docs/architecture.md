@@ -52,7 +52,7 @@ Task::Result Task::resume(short events)
 }
 ```
 
-Dans notre cas, le scheduler n'est pas générique : il est spécifique au polling et à la gestion des requètes sur le réseau.
+Dans notre cas, le scheduler reste générique : il sait surveiller des fds et executer des `PollTask`, mais il ne connait ni les listeners, ni HTTP, ni CGI.
 Donc il est plus simple de creer directement une classe `PollScheduler` pour ce faire.
 
 Une tâche ne connait pas le scheduler. Elle expose le fd et les événements qu'elle souhaite faire surveiller avec `fd()` et `events()`. Le scheduler relit ces valeurs après chaque `resume()`, ce qui permet à une tâche de changer de fd ou d'événements entre deux étapes.
@@ -87,7 +87,7 @@ Donc on se retrouve avec les deux librairies et une application (le server web) 
 - `net::PollTask`
 - `net::TCPClient`
 - `net::ClientFactory`
-- `net::TCPListener` - prend en paramêtre un `ClientFactory`
+- `net::TCPListener` - implementation de `net::PollTask`, prend en paramêtre un `ClientFactory` et crée une connexion par client accepté
 
 #### `http`
 **Messages**
@@ -109,7 +109,7 @@ L'application principale elle se retrouverais dans ces classes :
 - `CGIHandler` - implementation de `ARequestHandler`, crée une `CGIResponseTask`
 - `DeleteHandler`- implementation de `ARequestHandler`
 - `CGIResponseTask` - implementation de `net::PollTask`, gestion d'un processus CGI
-- `HttpConnexion` - implementation de `net::PollTask`, gestion d'un client
+- `HttpConnexion` - implementation de `net::PollTask`, gestion d'un client et possession de son `TCPClient`
 - `HttpClientFactory` - implementation de `net::ClientFactory`, cree des HttpConnextion en leur donnant la config dédiée et le router.
 
 `HttpConnexion` possède un buffer d'entrée, un buffer de sortie et une méthode `reset()` appelée après chaque réponse en keep-alive. Elle traite une seule requête active à la fois, mais plusieurs requêtes successives pendant sa durée de vie. Après un reset, les octets déjà présents dans le buffer d'entrée sont parsés immédiatement : la connexion n'attend un nouveau `POLLIN` que s'ils ne suffisent pas à construire la requête suivante.
@@ -125,7 +125,8 @@ Utilitaire :
 ## Cycle de vie de l'application
 
 - Parsing de la config
-- création des servers (`TCPListeners`)
+- création des servers (`TCPListeners`) avec leur `ClientFactory`
+- ajout de chaque listener comme tâche racine avec `PollScheduler::add()`
 - lancement du `PollScheduler` 
 - gestion des requetes
 
@@ -158,6 +159,26 @@ Quand `CGIResponseTask` retourne `FINISHED`, la réponse doit être entièrement
 
 Si le client se déconnecte avant la fin, le scheduler annule la connexion et toute sa descendance. Dans ce cas, `on_child_finished()` n'est pas appelé et la tâche libère ses ressources dans son destructeur.
 
+## 3. Création des connexions
+
+Chaque `TCPListener` est une `PollTask` racine. Le server crée les listeners avec la `ClientFactory` adaptée à leur configuration, puis les ajoute au scheduler avec `add()`. Il peut donc y avoir plusieurs racines indépendantes, une par socket d'écoute.
+
+Un listener possède son `Fd` et expose toujours `POLLIN`. Quand son socket est prêt, `resume()` accepte un seul client et demande à sa factory de créer la tâche de connexion correspondante. Il retourne ensuite `WAIT + child`. Le scheduler rattache cette `HttpConnexion` au listener, en prend possession et surveille le fd retourné par `HttpConnexion::fd()`.
+
+La possession suit cette hierarchie :
+
+```text
+PollScheduler
+└── possède TCPListener
+    └── possède HttpConnexion
+        └── possède TCPClient
+            └── possède Fd
+```
+
+`TCPClient` est non copiable et responsable des operations `receive()` / `send()`. `HttpConnexion` possède le client accepté et gère uniquement le protocole HTTP. Le scheduler ne connait ni `TCPListener`, ni `TCPClient` : il ne manipule que des `PollTask` et les entiers de fds qu'elles exposent.
+
+Si plusieurs connexions sont en attente, le listener en accepte une par événement. Le fd restant prêt, `poll()` le signalera à nouveau. Cela evite qu'un listener monopolise le scheduler.
+
 ## Diagrame
 
 Lexique :
@@ -172,11 +193,20 @@ classDiagram
     namespace net {
         class PollScheduler {
             -pollfds : list~pollfd~
-            -tasks : list~PollTask~
+            -entriesByFd : map~int, TaskEntry~
+            -roots : list~TaskEntry~
+            +add(task : PollTask) void
             +run() void
-            +add_listener(listener : TCPListener&) void
-            +addTask(task : PollTask, parent : PollTask) void
-            +cancelTasksOf(parent : PollTask) void
+            +stop() void
+        }
+
+        class TaskEntry {
+            +task : PollTask
+            +parent : TaskEntry
+            +children : list~TaskEntry~
+            +fd : int
+            +events : short
+            +pendingRemoval : bool
         }
 
         class PollTask {
@@ -208,12 +238,13 @@ classDiagram
         class TCPListener {
             -fd : Fd
             -factory : ClientFactory&
-            +accept() TCPClient
+            -accept_client() TCPClient*
+            +resume(events : short) TaskResult
         }
 
         class ClientFactory {
             <<abstract>>
-            +create(client : TCPClient&)* PollTask
+            +create(client : TCPClient*)* PollTask
         }
     }
 
@@ -287,7 +318,7 @@ classDiagram
     class HttpClientFactory {
         -configuration : Config
         -router : Router
-        +create(client : TCPClient&) PollTask
+        +create(client : TCPClient*) PollTask
     }
 
     class Router {
@@ -295,7 +326,7 @@ classDiagram
     }
 
     class HttpConnexion {
-        -client : TCPClient
+        -client : TCPClient*
         -input : string
         -output : string
         -parser : RequestParser
@@ -310,11 +341,15 @@ classDiagram
 
     class Fd {
         -value : int
-        +close() void
+        +get() int
+        +reset(fd : int) void
+        +release() int
+        +set_non_blocking() bool
     }
 
     PollTask <|-- HttpConnexion
     PollTask <|-- CGIResponseTask
+    PollTask <|-- TCPListener
     ClientFactory <|-- HttpClientFactory
     Message <|-- Request
     Message <|-- Response
@@ -329,9 +364,10 @@ classDiagram
     Server "1" *-- "1" PollScheduler : possède
     Server "1" *-- "1" Router : possède
     Server "1" *-- "1" HttpClientFactory : possède
-    Server "1" *-- "*" TCPListener : possède
-    PollScheduler "1" *-- "*" PollTask : ordonnance
-    PollScheduler ..> TCPListener : surveille
+    Server ..> TCPListener : crée
+    PollScheduler "1" *-- "*" TaskEntry : ordonnance
+    TaskEntry --> PollTask : référence
+    TaskEntry --> TaskEntry : parent / enfants
     PollTask ..> TaskResult : retourne
     TaskResult ..> StatusEnum : contient
     TaskResult ..> PollTask : enfant éventuel
