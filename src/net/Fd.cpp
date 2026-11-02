@@ -1,10 +1,12 @@
-#include "Fd.hpp"
+#include "net/Fd.hpp"
+#include <fcntl.h>
+#include <unistd.h>
 
 using namespace net;
 
-Fd::Fd(int fd = -1) _fd(fd) {}
+Fd::Fd(int fd) : _fd(fd) {}
 
-Fd::~Fd();
+Fd::~Fd()
 {
 	if (_fd != -1)
 		close(_fd);
@@ -12,14 +14,14 @@ Fd::~Fd();
 
 int Fd::get() const { return _fd; }
 
-void Fd::reset(int fd = -1)
+void Fd::reset(int fd)
 {
 	if (_fd != -1)
-		close();
+		close(fd);
 	_fd = fd;
 }
 
-void Fd::release()
+int Fd::release()
 {
 	int tmp = _fd;
 	_fd = -1;

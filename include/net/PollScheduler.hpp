@@ -3,6 +3,6 @@
 
 class PollScheduler
 {
-}
+};
 
 #endif // POLL_SCHEDULER_HPP
