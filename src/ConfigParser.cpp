@@ -106,6 +106,11 @@ void ConfigParser::_parseLocation(size_t &i, std::vector<std::string> &token, Se
 			location.index = token[++i];
 			i++;												//comment: sauter ";"
 		}
+		else if (token[i] == "autoindex")
+		{
+			location.auto_index = (token[++i] == "on");
+			i++;
+		}
 		else if (token[i] == "allow_methods")
 		{
 			location.accepts_methods.push_back(token[++i]);
@@ -125,7 +130,7 @@ void ConfigParser::_parseLocation(size_t &i, std::vector<std::string> &token, Se
 
 //comment: -----------------------------------------------------					PUBLIC METOHDS
 
-
+//parse obtien "path/name.conf" pour commencer avec la parsing
 Config ConfigParser::parse(const std::string &file_name)
 {
 	std::ifstream file(file_name.c_str());

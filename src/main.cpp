@@ -10,9 +10,10 @@ int main()
 		ConfigParser 	parser;
 		Config			config = parser.parse("config/default.conf");
 
-		std::cout << "Server: " 	<< config.servers[0].server_name << std::endl;
-		std::cout << "Port: " 		<< config.servers[0].port << std::endl;
-		std::cout << "Location: " 	<< config.servers[0].location.size() << std::endl;
+		std::cout << "Server			: " << config.servers[0].server_name << std::endl;
+		std::cout << "Port			: " << config.servers[0].port << std::endl;
+		std::cout << "Location		: " << config.servers[0].location.size() << std::endl;
+		std::cout << "Auto index status	: " << config.servers[0].location[0].auto_index << std::endl;
 
 		std::cout << "Parsing done!" << std::endl;
 	}

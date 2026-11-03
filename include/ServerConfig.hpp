@@ -6,17 +6,15 @@
 #include <vector>
 #include <map>
 
-class ServerConfig
+struct ServerConfig
 {
-	public:
-		ServerConfig	();
-		~ServerConfig	();
+	ServerConfig	();
+	~ServerConfig	();
 
-		int 							port;
-		size_t							client_name_body_max;
-		std::string 					server_name;
-		std::vector<LocationConfig>		location;
-		
+	int 							port;
+	size_t							client_name_body_max;
+	std::string 					server_name;
+	std::vector<LocationConfig>		location;
 };
 
 #endif //SERVERCONFIG_HPP
