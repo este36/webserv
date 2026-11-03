@@ -21,6 +21,16 @@ std::string to_lower(const std::string &str);
 // return converted int value or -1 in case of error
 int hex_to_val(char c);
 
+template <typename T>
+void remove_unordered(std::vector<T>& container, std::size_t index)
+{
+	if (index >= container.size() || container.empty())
+		return;
+	if (container.size() != index)
+		container.back() = container[index];
+	container.pop_back();
+}
+
 }
 
 #endif // UTILS_HPP
