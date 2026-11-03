@@ -22,6 +22,7 @@ LIB_NET_SRCS =\
 	src/net/PollTask.cpp \
 	src/net/TCPClient.cpp \
 	src/net/TCPListener.cpp \
+	src/net/PollScheduler.cpp \
 
 SRCS =\
 	$(LIB_FT_SRCS) \
@@ -38,10 +39,17 @@ TESTS_SRCS =\
 	tests/test_lib.cpp\
 	tests/test_url.cpp\
 
+NET_EXAMPLE_SRCS =\
+	src/net/example/EchoTask.cpp\
+	src/net/example/EchoTaskFactory.cpp\
+	src/net/example/server.cpp\
+
+
 OBJS = $(SRCS:src/%.cpp=obj/%.o)
 DEPS = $(OBJS:.o=.d)
 TESTS = $(TESTS_SRCS:tests/%.cpp=tests/bin/%.out)
 TESTS_OBJS = $(filter-out obj/main.o,$(OBJS))
+NET_EXAMPLE_OBJS = $(filter-out obj/main.o,$(OBJS)) $(NET_EXAMPLE_SRCS:src/%.cpp=obj/%.o)
 
 .PHONY: all clean fclean re test_cgi tests
 
@@ -59,9 +67,13 @@ $(NAME): $(OBJS)
 
 tests: $(TESTS_OBJS) $(TESTS)
 
+net-example: $(NET_EXAMPLE_OBJS)
+	$(CXX) $(CXXFLAGS) $(NET_EXAMPLE_OBJS) -o $@
+
 obj/%.o: src/%.cpp
 	@mkdir -p $(dir $@)
 	$(CXX) $(CXXFLAGS) $(INCLUDES) -MMD -MP -c $< -o $@
+
 
 -include $(DEPS)
 
@@ -72,8 +84,6 @@ tests/bin/%.out: tests/%.cpp
 	@mkdir -p $(dir $@)
 	$(CXX) $(CXXFLAGS) $(INCLUDES) $(TESTS_OBJS) $< -o $@
 
-test_cgi: tests/bin/test_cgi.out
-	./tests/bin/test_cgi.out
 
 clean:
 	rm -rf obj
