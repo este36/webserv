@@ -4,10 +4,15 @@
 namespace http
 {
 
-Response::Response(int status_code) :
-	_body(NULL),
-	status_code(status_code)
+ResponseHead::ResponseHead()
+	: status_code(0)
 {}
+
+Response::Response(int status_code)
+	: _body(NULL)
+{
+	_head.status_code = status_code;
+}
 
 Response::~Response()
 {
@@ -15,21 +20,24 @@ Response::~Response()
 		delete _body;
 }
 
+const ResponseHead& Response::head() const { return _head; }
+ResponseHead& Response::head() { return _head; }
+
 void Response::set_body(AStreamableBody *sb)
 {
 	if (_body != NULL && sb != _body)
 		throw std::runtime_error("body already set");
 	_body = sb;
 }
-const AStreamableBody *Response::get_body() const { return _body; }
+const AStreamableBody *Response::body() const { return _body; }
 
 std::ostream& operator<<(std::ostream& out, const Response& response)
 {
-	const AStreamableBody *body = response.get_body();
+	const AStreamableBody *body = response.body();
 
-	serialize_version(out, response);
-	out << " " << response.status_code << " " << reason_phrase(response.status_code) << CRLF;
-	serialize_headers(out, response.headers);
+	serialize_version(out, response.head());
+	out << " " << response.head().status_code << " " << reason_phrase(response.head().status_code) << CRLF;
+	serialize_headers(out, response.head());
 	out << CRLF;
 	if (body != NULL && body->has_bytes())
 	{

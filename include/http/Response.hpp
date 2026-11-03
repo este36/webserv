@@ -1,14 +1,22 @@
 #ifndef HTTP_RESPONSE_HPP
 #define HTTP_RESPONSE_HPP
 
-#include "http/Message.hpp"
+#include "http/MessageHead.hpp"
 #include "http/AStreamableBody.hpp"
 
 namespace http
 {
 
-class Response : public Message
+struct ResponseHead : public MessageHead
 {
+	int	status_code;
+
+	ResponseHead();
+};
+
+class Response
+{
+	ResponseHead _head;
 	// Owns the StreamableBody instance
 	// NULL means no body
 	AStreamableBody	*_body;
@@ -18,14 +26,16 @@ class Response : public Message
 	Response(const Response& other);
 
 public:
-	int				status_code;
 
 	// non-explicit which means `Response resp = 200;` is ok.
 	Response(int status_code = 200);
 	~Response();
 
+	const ResponseHead& head() const;
+	ResponseHead& head();
+
 	void set_body(AStreamableBody *sb);
-	const AStreamableBody *get_body() const;
+	const AStreamableBody *body() const;
 
 	std::string serialize();
 };

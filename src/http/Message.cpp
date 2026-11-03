@@ -1,23 +1,23 @@
-#include "http/Message.hpp"
+#include "http/MessageHead.hpp"
 
 namespace http
 {
 
-Message::Message() :
+MessageHead::MessageHead() :
 	version_major(1),
 	version_minor(1),
 	headers()
 {}
 
-void serialize_headers(std::ostream& out, const Headers& headers)
+void serialize_headers(std::ostream& out, const MessageHead& head)
 {
-	for (Headers::const_iterator it = headers.begin(); it != headers.end(); ++it)
+	for (Headers::const_iterator it = head.headers.begin(); it != head.headers.end(); ++it)
 		out << it->first << ": " << it->second << CRLF;
 }
 
-void serialize_version(std::ostream& out, const Message& message)
+void serialize_version(std::ostream& out, const MessageHead& head)
 {
-	out << "HTTP/" << message.version_major << "." << message.version_minor;
+	out << "HTTP/" << head.version_major << "." << head.version_minor;
 }
 
 }

@@ -1,5 +1,5 @@
-#ifndef MESSAGE_HPP
-#define MESSAGE_HPP
+#ifndef MESSAGE_HEAD_HPP
+#define MESSAGE_HEAD_HPP
 
 #include <string>
 #include <vector>
@@ -18,24 +18,20 @@ namespace http
 // Using std::string also simplifies ownership and allows headers to be modified
 typedef std::vector< std::pair<std::string, std::string> > Headers;
 
-// we need to have a separate method because typedefs are only aliases. not actual type
-void serialize_headers(std::ostream& out, const Headers& headers);
-
-struct Message
+struct MessageHead
 {
-	// even though the body is a common property of requests and responses,
-	// they are not representated in the memory the same way.
-	// so each one have their own version of `body`
-
 	int			version_major;
 	int			version_minor;
 	Headers		headers;
 
-	Message();
+	MessageHead();
 };
 
-void serialize_version(std::ostream& out, const Message& message);
+// we need to have a separate method because typedefs are only aliases. not actual type
+void serialize_headers(std::ostream& out, const MessageHead& head);
+
+void serialize_version(std::ostream& out, const MessageHead& head);
 
 }
 
-#endif // MESSAGE_HPP
+#endif

@@ -1,7 +1,7 @@
 #ifndef HTTP_REQUEST_HPP
 #define HTTP_REQUEST_HPP
 
-#include "http/Message.hpp"
+#include "http/MessageHead.hpp"
 #include "http/URL.hpp"
 
 namespace http
@@ -18,14 +18,18 @@ enum MethodEnum
 
 std::ostream& operator<<(std::ostream& out, const MethodEnum method);
 
-struct Request : public Message
+struct RequestHead : public MessageHead
 {
 	MethodEnum	method;
 	URL			uri;
-	std::string	body;
 
-	// to ensure 0 initialized
-	Request();
+	RequestHead();
+};
+
+struct Request
+{
+	RequestHead	head;
+	std::string	body;
 };
 
 std::ostream& operator<<(std::ostream& out, const Request& request);

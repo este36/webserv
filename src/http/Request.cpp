@@ -3,7 +3,7 @@
 namespace http
 {
 
-Request::Request() : method(METHOD_UNSET) {}
+RequestHead::RequestHead() : method(METHOD_UNSET) {}
 
 std::ostream& operator<<(std::ostream& out, const MethodEnum method)
 {
@@ -19,10 +19,10 @@ std::ostream& operator<<(std::ostream& out, const MethodEnum method)
 
 std::ostream& operator<<(std::ostream& out, const Request& request)
 {
-	out << request.method << " " << request.uri << " ";
-	serialize_version(out, request);
+	out << request.head.method << " " << request.head.uri << " ";
+	serialize_version(out, request.head);
 	out << CRLF;
-	serialize_headers(out, request.headers);
+	serialize_headers(out, request.head);
 	out << request.body;
 	return out;
 }
