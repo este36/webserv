@@ -8,15 +8,26 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <cerrno>
+#include <stdexcept>
 
 using namespace net;
 
 TCPListener::~TCPListener() {}
 
-TCPClient*	TCPListener::accept_client()
+TCPClient	*TCPListener::try_accept_client()
 {
-	// TODO
-	return NULL;
+	int client_fd = accept(_fd.get(), NULL, NULL);
+
+	// Since the server fd is non-blocking, client_fd can be -1 if there is no pending clients
+	if (client_fd == -1)
+	{
+		if (errno == EAGAIN || errno == EWOULDBLOCK)
+			return NULL;
+		else
+			throw std::runtime_error("accept() failed");
+	}
+
+	return new TCPClient(client_fd);
 }
 
 TCPListener::TCPListener(
@@ -65,13 +76,10 @@ TCPListener::TCPListener(
 
 PollTask::Result TCPListener::resume(short)
 {
-    int client_fd = accept(_fd.get(), NULL, NULL);
-    if (client_fd < 0)
+	TCPClient *client = try_accept_client();
+    if (client == NULL)
         return PollTask::Result(WAIT, NULL);
-    return PollTask::Result(
-		WAIT,
-		_factory.create(new TCPClient(client_fd))
-	);
+    return PollTask::Result(WAIT, _factory.create(client));
 }
 
 int    TCPListener::fd() const { return _fd.get(); }

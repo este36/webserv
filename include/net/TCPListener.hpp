@@ -12,14 +12,14 @@ namespace net
 
 class TCPListener : public PollTask
 {
-	Fd	_fd;
+	Fd				_fd;
 	ClientFactory&	_factory;
 
 	// immutable
 	TCPListener(const TCPListener&);
 	TCPListener& operator=(const TCPListener&);
 
-	TCPClient*	accept_client();
+	TCPClient*	try_accept_client();
 
 public:
 	TCPListener(const std::string& host, const std::string& port, ClientFactory& factory);
