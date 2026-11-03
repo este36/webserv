@@ -18,21 +18,15 @@ TCPClient	*TCPListener::try_accept_client()
 {
 	int client_fd = accept(_fd.get(), NULL, NULL);
 
-	// Since the server fd is non-blocking, client_fd can be -1 if there is no pending clients
 	if (client_fd == -1)
-	{
-		if (errno == EAGAIN || errno == EWOULDBLOCK)
-			return NULL;
-		else
-			throw std::runtime_error("accept() failed");
-	}
+		return NULL;
 
 	return new TCPClient(client_fd);
 }
 
 TCPListener::TCPListener(
-    const std::string& host,
-    const std::string& port,
+    const std::string host,
+    const std::string port,
     ClientFactory& factory
 ) : _factory(factory)
 {
@@ -66,7 +60,7 @@ TCPListener::TCPListener(
 	if (listen(_fd.get(), SOMAXCONN) == -1)
     {
 		freeaddrinfo(res);
-		throw std::runtime_error("/listen() failed");
+		throw std::runtime_error("listen() failed");
 	}
 
 	freeaddrinfo(res);
@@ -77,6 +71,8 @@ TCPListener::TCPListener(
 PollTask::Result TCPListener::resume(short)
 {
 	TCPClient *client = try_accept_client();
+
+	// basically, the task will never finish and always return WAIT
     if (client == NULL)
         return PollTask::Result(WAIT, NULL);
     return PollTask::Result(WAIT, _factory.create(client));

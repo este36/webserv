@@ -3,7 +3,10 @@
 
 using namespace net;
 
-TCPClient::TCPClient(int fd) : _fd(fd) {}
+TCPClient::TCPClient(int fd) : _fd(fd)
+{
+	_fd.set_non_blocking();
+}
 
 ssize_t TCPClient::receive(std::string& out)
 {

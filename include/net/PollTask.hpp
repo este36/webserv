@@ -1,8 +1,8 @@
 #ifndef POLL_TASK_HPP
 #define POLL_TASK_HPP
 
-#include "net/PollScheduler.hpp"
 #include <cstdlib>
+#include <poll.h>
 
 namespace net
 {
@@ -10,7 +10,7 @@ namespace net
 class PollTask
 {
 public:
-	enum Status
+	enum StatusEnum
 	{
 		WAIT,
 		FINISHED
@@ -18,10 +18,10 @@ public:
 
 	struct Result
 	{
-		Status 		status;
+		StatusEnum	status;
 		PollTask	*child;
 
-		Result(Status stat = WAIT, PollTask *c = NULL);
+		Result(StatusEnum stat = WAIT, PollTask *c = NULL);
 	};
 
 	virtual ~PollTask();

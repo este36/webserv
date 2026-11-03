@@ -4,7 +4,7 @@
 namespace net
 {
 
-PollTask::Result::Result(PollTask::Status stat, PollTask *c) : status(stat), child(c)
+PollTask::Result::Result(PollTask::StatusEnum stat, PollTask *c) : status(stat), child(c)
 {
 	if (status == FINISHED && child != NULL)
 		throw std::runtime_error("bad usage");

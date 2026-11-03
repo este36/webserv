@@ -19,10 +19,10 @@ class TCPListener : public PollTask
 	TCPListener(const TCPListener&);
 	TCPListener& operator=(const TCPListener&);
 
-	TCPClient*	try_accept_client();
+	TCPClient	*try_accept_client();
 
 public:
-	TCPListener(const std::string& host, const std::string& port, ClientFactory& factory);
+	TCPListener(const std::string host, const std::string port, ClientFactory& factory);
 	virtual ~TCPListener();
 
 	Result resume(short revents);
