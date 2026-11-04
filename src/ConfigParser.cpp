@@ -1,3 +1,5 @@
+#define DEFAULT_SERVER 8080
+
 #include "ConfigParser.hpp"
 #include <stdexcept>							//comment: only for rutine_error, for the moment, mybe I will change later
 
@@ -54,22 +56,44 @@ std::vector<std::string> ConfigParser::_tokenizer(const std::string &content)
 	return token;
 }
 
+//On controle si le string est vide, et si il a des caratères alphanumeriques.
+//Om accepte . - et _ des chifres et lettres  
+bool ConfigParser::_controlSpaceAndAlphanumeric(const std::string &name)
+{
+    if (name.empty())
+        return true;
+
+    for (size_t i = 0; i < name.size(); i++) 					//comment: On accepte "isalnum" et seulement "." "_" et "-"
+    {
+		if (!std::isalnum(static_cast<unsigned char>(name[i])) 
+			&& name[i] != '.' && name[i] != '-' && name[i] != '_')
+			return (true);
+	}
+    return false;
+}
+
 //pasage d'information vers les servers (vector avec tous les servers)
 void ConfigParser::_parseServer(size_t &i, std::vector<std::string> &token, Config &config)
 {
-	ServerConfig server;
+	size_t 			listen_control 		= 0;
+	size_t			server_name_control = 0;
+	ServerConfig 	server;
 	i += 2;														//comment: sauter le mot "server" et "{"
 
 	while(i < token.size() && token[i] != "}")
 	{
 		if (token[i] == "listen")
 		{
+			listen_control++;
 			server.port = atoi(token[++i].c_str());
 			i++;												//comment: sauter ";"
 		}
 		else if (token[i] == "server_name")
 		{
+			server_name_control++;
 			server.server_name = token[++i];
+			if (ConfigParser::_controlSpaceAndAlphanumeric(token[i]))
+				throw std::runtime_error("Server name not accepted");
 			i++;												//comment: sauter ";"
 		}
 		else if (token[i] == "location")
@@ -80,17 +104,47 @@ void ConfigParser::_parseServer(size_t &i, std::vector<std::string> &token, Conf
 			i++;
 	}
 
-	if (token[i] == "}")							//comment: sauter dernière "}"
-		i++;
-	else
-		throw std::runtime_error("Error: SERVER configuration isn't close");
+	if (listen_control > 1)
+		throw std::runtime_error("Only one port per server");
+	else if (listen_control == 0)
+		server.port = DEFAULT_SERVER;
 
+	if (server_name_control > 1)
+		throw std::runtime_error("Only one server name is accepted");
+
+	i++;														//comment: sauter "}"	
 	config.servers.push_back(server);
+}
+
+//On controle le format du root.
+//Il doit commencer forcement soit / (absolut path) soit ./ (relative path) ../
+bool ConfigParser::_rootFormatControl(const std::string &root)
+{
+	size_t i = 0;
+
+	if (root[i] == '.')
+	{
+		i++;
+
+		if (root[i] == '.')
+			if (root[++i] == '/')
+				return false;
+			else
+				return true;
+		else if (root[i] == '/')
+			return false;
+
+	}
+	else if (root[i] == '/')
+		return false;
+
+	return true;
 }
 
 void ConfigParser::_parseLocation(size_t &i, std::vector<std::string> &token, ServerConfig &server)
 {
-	LocationConfig location;
+	LocationConfig 		location;
+	size_t				root_control = 0;
 
 	i += 2;														//comment: saluter "\" et "{"
 
@@ -98,7 +152,10 @@ void ConfigParser::_parseLocation(size_t &i, std::vector<std::string> &token, Se
 	{
 		if (token[i] == "root")
 		{
+			root_control++;
 			location.root = token[++i];
+			if (ConfigParser::_rootFormatControl(token [i]))
+				throw std::runtime_error("location isn't valid");
 			i++;												//comment: sauter ";"
 		}
 		else if (token[i] == "index")
@@ -119,10 +176,10 @@ void ConfigParser::_parseLocation(size_t &i, std::vector<std::string> &token, Se
 		else
 			i++;
 	}
-	if (token[i] == "}")										//comment: sauter dernière "}"
-		i++;
-	else
-		throw std::runtime_error("Error: LOCATION configuration isn't close");	
+	i++;														//comment: sauter dernière "}"
+	
+	if (root_control > 1)
+		throw std::runtime_error("Only one root is accepted");
 
 	server.location.push_back(location);
 }

@@ -22,6 +22,10 @@ class ConfigParser
 		static bool 				_parseServerTokens	(const std::vector<std::string> &tokens, size_t &i);
 		static bool 				_parseLocationTokens(const std::vector<std::string> &tokens, size_t &i);
 		static bool 				_isValidPort		(const std::string &port_str);
+		
+		
+		static bool 				_controlSpaceAndAlphanumeric	(const std::string &name);
+		static bool					_rootFormatControl				(const std::string &root);
 
 
 	public:
