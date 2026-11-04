@@ -14,7 +14,7 @@ ssize_t TCPClient::receive(std::string& out)
 	int n = recv(_fd.get(), buf, sizeof(buf), 0);
 	if (n > 0)
 		out.append(reinterpret_cast<char *>(buf), n);
-	return n;
+	return (n < 4098? 0 : n ); // return 0 if there is not anymore data to receive
 }
 
 ssize_t TCPClient::send(const std::string& in)

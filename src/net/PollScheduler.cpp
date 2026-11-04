@@ -1,6 +1,7 @@
 #include "net/PollScheduler.hpp"
 #include "ft/utils.hpp"
 #include <iterator>
+#include <algorithm>
 
 using namespace net;
 
@@ -62,7 +63,6 @@ void PollScheduler::delete_entry(TaskEntry *entry)
 	if (entry == NULL)
 		return;
 	_tasks_by_fd.erase(entry->task->fd());
-	delete entry->task;
 	// find and delete _tasks entry
 	{
 		std::list<TaskEntry>::iterator element = std::find(_tasks.begin(), _tasks.end(), *entry);
@@ -82,6 +82,8 @@ void PollScheduler::delete_entry(TaskEntry *entry)
 				_pollfds.erase(_pollfds.begin() + i);
 		}
 	}
+	// delete the last reference to the task
+	delete entry->task;
 }
 
 void PollScheduler::add(PollTask *task)
@@ -171,13 +173,15 @@ void PollScheduler::run()
 			delete_entry(dead_tasks[i]);
 		}
 
-		for (std::vector< std::pair<PollTask*, TaskEntry*> >::iterator it = new_tasks.begin(); it != new_tasks.end(); ++it)
+		for (std::size_t i = 0; i < new_tasks.size(); ++i)
 		{
+			std::pair< PollTask*, TaskEntry* > *it = &new_tasks[i];
 			TaskEntry *child = add_task(it->first);
 			child->parent = it->second;
 			child->parent->children.push_back(child);
 		}
 
 		dead_tasks.clear();
+		new_tasks.clear();
 	}
 }

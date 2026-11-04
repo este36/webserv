@@ -1,4 +1,6 @@
 #include "net/example/EchoTask.hpp"
+#include <stdexcept>
+#include <iostream>
 
 EchoTask::EchoTask(net::TCPClient *client) : _client(client)
 {
@@ -14,6 +16,8 @@ EchoTask::~EchoTask()
 
 net::PollTask::Result	EchoTask::resume(short revents)
 {
+	if (revents & POLLRDHUP || revents & POLLERR || revents & POLLNVAL)
+		return net::PollTask::Result(FINISHED, NULL);
 	if (revents & POLLIN)
 	{
 		ssize_t ret = _client->receive(_request_data);
@@ -22,7 +26,13 @@ net::PollTask::Result	EchoTask::resume(short revents)
 		else if (ret > 0)
 			return net::PollTask::Result(WAIT, NULL);
 		else if (ret == 0)
+		{
+			if (!_request_data.empty() && *_request_data.rbegin() == '\n')
+				_request_data.erase(_request_data.size()-1, 1); // remove newline character
+			std::cout << "reveived data : \"" <<  _request_data << "\"" << std::endl;
+			_request_data = std::string("<h1>") + _request_data + "</h1>\r\n";
 			_events = POLLOUT;
+		}
 	}
 	else if (revents & POLLOUT)
 	{
@@ -42,3 +52,4 @@ net::PollTask::Result	EchoTask::resume(short revents)
 
 int EchoTask::fd() const { return _client->fd(); }
 short EchoTask::events() const { return _events; }
+

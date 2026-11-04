@@ -6,6 +6,7 @@
 
 #include "net/PollTask.hpp"
 #include <vector>
+#include <csignal>
 #include <list>
 #include "ft/unordered_map.hpp"
 
