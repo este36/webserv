@@ -7,6 +7,7 @@
 #include <netdb.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <cstring>
 #include <cerrno>
 #include <stdexcept>
 

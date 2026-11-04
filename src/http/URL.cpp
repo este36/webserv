@@ -210,7 +210,7 @@ std::pair<std::string, bool> URL::normalize(const std::string& s)
 
 	for (std::vector<std::string>::iterator it = segments.begin(); it != segments.end(); ++it)
 		res += "/" + *it;
-	if (s.back() == '/')
+	if (*s.rbegin() == '/')
 		res += "/";
 
 	return std::make_pair(res, true);
