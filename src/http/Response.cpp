@@ -33,26 +33,6 @@ void Response::set_body(AStreamableBody *sb)
 AStreamableBody *Response::body() { return _body; }
 const AStreamableBody *Response::body() const { return _body; }
 
-std::ostream& operator<<(std::ostream& out, const Response& response)
-{
-	const AStreamableBody *body = response.body();
-
-	serialize_version(out, response.head());
-	out << " " << response.head().status_code << " " << reason_phrase(response.head().status_code) << CRLF;
-	serialize_headers(out, response.head());
-	out << CRLF;
-	if (body != NULL && body->size() != 0 && body->data() != NULL) // check if the body is serialiazable
-		out << ft::string_view(body->data(), body->size());
-	return out;
-}
-
-std::string Response::serialize()
-{
-	std::ostringstream ss;
-	ss << *this;
-	return ss.str();
-}
-
 // Useful documentation:
 // https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status
 std::string reason_phrase(int status_code)
@@ -121,6 +101,15 @@ std::string reason_phrase(int status_code)
 		case 511: return "Network Authentication Required";
 		default: throw std::runtime_error("Unreachable: Unknown Status Code");
 	}
+}
+
+std::ostream& operator<<(std::ostream& out, const ResponseHead& head)
+{
+	serialize_version(out, head);
+	out << " " << head.status_code << " " << reason_phrase(head.status_code) << CRLF;
+	serialize_headers(out, head);
+	out << CRLF;
+	return out;
 }
 
 }

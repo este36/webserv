@@ -14,6 +14,8 @@ struct ResponseHead : public MessageHead
 	ResponseHead();
 };
 
+std::ostream& operator<<(std::ostream& out, const ResponseHead& head);
+
 class Response
 {
 	ResponseHead _head;
@@ -39,13 +41,9 @@ public:
 
 	AStreamableBody *body();
 	const AStreamableBody *body() const;
-
-	std::string serialize();
 };
 
 std::string reason_phrase(int status_code);
-
-std::ostream& operator<<(std::ostream& out, const Response& response);
 
 }
 
