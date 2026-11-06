@@ -34,6 +34,10 @@ SRCS =\
 	src/ServerConfig.cpp \
 	src/ConfigParser.cpp \
 	src/ConfigTokensValidation.cpp \
+	src/Server.cpp \
+	src/HttpConnexion.cpp \
+	src/HttpConnexionFactory.cpp \
+	src/RequestParser.cpp \
 
 TESTS_SRCS =\
 	tests/test_lib.cpp\
