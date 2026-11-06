@@ -18,6 +18,7 @@ struct LocationConfig
 	int									redirect_code;
 	bool								auto_index;
 	
+	std::map<int, std::string> 			error_pages;
 	std::vector<std::string> 			accepts_methods;
 	std::map<std::string, std::string>	cgis;
 };

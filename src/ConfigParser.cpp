@@ -141,10 +141,41 @@ bool ConfigParser::_rootFormatControl(const std::string &root)
 	return true;
 }
 
+void control_of_repeated_methods(std::vector<std::string> &methods)
+{
+	size_t control_GET = 0;
+	size_t control_POST = 0;
+	size_t control_DELETE = 0;
+
+	size_t i = 0;
+	while (i < methods.size())
+	{
+		if (methods[i] == "GET")
+			control_GET++;
+		else if (methods[i] == "POST")
+			control_POST++;
+		else if (methods[i] == "DELETE")
+			control_DELETE++;
+		else
+			throw std::runtime_error("Invalid HTTP method");
+		
+		i++;
+	}
+	if (control_GET > 1 || control_POST > 1 || control_DELETE > 1)
+    	throw std::runtime_error("Duplicate HTTP method");
+
+	if (control_GET + control_POST + control_DELETE < 1)
+    	throw std::runtime_error("At least one HTTP method is required");
+
+}
+
 void ConfigParser::_parseLocation(size_t &i, std::vector<std::string> &token, ServerConfig &server)
 {
 	LocationConfig 		location;
-	size_t				root_control = 0;
+	size_t				root_control = 			0;
+	size_t				index_control = 		0;
+	size_t				auto_index_control =	0;
+	size_t				allow_method_control = 	0;
 
 	i += 2;														//comment: saluter "\" et "{"
 
@@ -160,18 +191,43 @@ void ConfigParser::_parseLocation(size_t &i, std::vector<std::string> &token, Se
 		}
 		else if (token[i] == "index")
 		{
+			index_control++;
 			location.index = token[++i];
 			i++;												//comment: sauter ";"
 		}
 		else if (token[i] == "autoindex")
 		{
-			location.auto_index = (token[++i] == "on");
+			auto_index_control++;
+
+			if (token[++i] == "on")
+				location.auto_index = true;
+			else if (token[i] == "off")
+				location.auto_index = false;
+			else
+				auto_index_control = 42;
+	
 			i++;
 		}
 		else if (token[i] == "allow_methods")
 		{
-			location.accepts_methods.push_back(token[++i]);
-			i++;												//comment: sauter ";"
+		    allow_method_control++;
+		
+			if (allow_method_control > 1)
+				throw std::runtime_error("Only one allow_methods directive accepted");
+		
+			i++;
+		
+			while (i < token.size() && token[i] != ";")
+			{
+				location.accepts_methods.push_back(token[i]);
+				control_of_repeated_methods(location.accepts_methods);
+				i++;
+			}
+		
+			if (location.accepts_methods.empty())
+				throw std::runtime_error("At least one method is required");
+		
+			i++;
 		}
 		else
 			i++;
@@ -180,6 +236,10 @@ void ConfigParser::_parseLocation(size_t &i, std::vector<std::string> &token, Se
 	
 	if (root_control > 1)
 		throw std::runtime_error("Only one root is accepted");
+	else if (index_control > 1)
+		throw std::runtime_error("Only one index is accepted");
+	else if (auto_index_control > 1)
+		throw std::runtime_error("Only one auto_index is accepted");
 
 	server.location.push_back(location);
 }
