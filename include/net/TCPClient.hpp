@@ -38,7 +38,7 @@ public:
 
 	// return value is the result from send()
 	// (overload) send at most size bytes
-	ssize_t send(const unsigned char *data, const std::size_t size);
+	ssize_t send(const char *data, const std::size_t size);
 
 	int fd() const;
 };

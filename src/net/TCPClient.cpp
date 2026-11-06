@@ -23,7 +23,7 @@ ssize_t TCPClient::send(const std::string& in)
 	return ::send(_fd.get(), in.data(), in.size(), 0);
 }
 
-ssize_t TCPClient::send(const unsigned char *data, const std::size_t size)
+ssize_t TCPClient::send(const char *data, const std::size_t size)
 {
 	return ::send(_fd.get(), data, size, 0);
 }
