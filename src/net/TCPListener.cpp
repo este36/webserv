@@ -1,4 +1,5 @@
 #include "net/TCPListener.hpp"
+#include "ft/utils.hpp"
 
 #include <sys/socket.h>
 #include <sys/types.h>
@@ -27,7 +28,7 @@ TCPClient	*TCPListener::try_accept_client()
 
 TCPListener::TCPListener(
     const std::string host,
-    const std::string port,
+    const int port,
     ClientFactory& factory
 ) : _factory(factory)
 {
@@ -39,7 +40,9 @@ TCPListener::TCPListener(
 	hints.ai_socktype = SOCK_STREAM;
 	hints.ai_flags = AI_PASSIVE;
 
-	if (getaddrinfo(host.c_str(), port.c_str(), &hints, &res) != 0)
+	const std::string port_str = ft::to_string(port);
+
+	if (getaddrinfo(host.c_str(), port_str.c_str(), &hints, &res) != 0)
 		throw std::runtime_error("getaddrinfo() failed");
 
 	_fd.reset(socket(res->ai_family, res->ai_socktype, res->ai_protocol));
