@@ -18,10 +18,14 @@ net::PollTask::Result	EchoTask::resume(short revents)
 {
 	if (revents & POLLIN)
 	{
-		ssize_t ret = _client->receive(_request_data);
+		ssize_t ret = _client->receive();
+
 		if (ret < 0) // error case
 			return net::PollTask::Result(FINISHED, NULL);
-		else if (ret > 0)
+
+		_request_data.append(_client.received_data(), _client.received_length());
+
+		if (ret > 0)
 			return net::PollTask::Result(WAIT, NULL);
 		else if (ret == 0)
 		{
