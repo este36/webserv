@@ -17,7 +17,7 @@ static bool is_valid_url_byte(unsigned char c)
 	return c >= 0x20 && c <= 0x7E;
 }
 
-std::pair<URL, bool> URL::create_from_request_target(const std::string& src)
+std::pair<URL, bool> URL::create_from_raw_target(const std::string& src)
 {
 	URL url;
 

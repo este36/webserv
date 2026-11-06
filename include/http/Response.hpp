@@ -34,7 +34,10 @@ public:
 	const ResponseHead& head() const;
 	ResponseHead& head();
 
+	// takes ownership of the new body
 	void set_body(AStreamableBody *sb);
+
+	AStreamableBody *body();
 	const AStreamableBody *body() const;
 
 	std::string serialize();

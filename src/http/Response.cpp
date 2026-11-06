@@ -1,4 +1,5 @@
 #include "http/Response.hpp"
+#include "ft/string_view.hpp"
 #include <sstream>
 
 namespace http
@@ -29,6 +30,7 @@ void Response::set_body(AStreamableBody *sb)
 		throw std::runtime_error("body already set");
 	_body = sb;
 }
+AStreamableBody *Response::body() { return _body; }
 const AStreamableBody *Response::body() const { return _body; }
 
 std::ostream& operator<<(std::ostream& out, const Response& response)
@@ -39,12 +41,8 @@ std::ostream& operator<<(std::ostream& out, const Response& response)
 	out << " " << response.head().status_code << " " << reason_phrase(response.head().status_code) << CRLF;
 	serialize_headers(out, response.head());
 	out << CRLF;
-	if (body != NULL && body->has_bytes())
-	{
-		std::string body_out;
-		body->read(body_out, body->size());
-		out << body_out;
-	}
+	if (body != NULL && body->size() != 0 && body->data() != NULL) // check if the body is serialiazable
+		out << ft::string_view(body->data(), body->size());
 	return out;
 }
 
