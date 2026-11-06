@@ -3,7 +3,7 @@
 
 using namespace net;
 
-unsigned char TCPClient::recv_temp_buffer[TCPClient::recv_temp_buffer_capacity] = {0};
+char TCPClient::recv_temp_buffer[TCPClient::recv_temp_buffer_capacity] = {0};
 std::size_t	TCPClient::recv_temp_buffer_length = 0;
 
 TCPClient::TCPClient(int fd) : _fd(fd)
@@ -28,7 +28,7 @@ ssize_t TCPClient::send(const unsigned char *data, const std::size_t size)
 	return ::send(_fd.get(), data, size, 0);
 }
 
-unsigned char	*TCPClient::received_data() { return recv_temp_buffer; }
+const char	*TCPClient::received_data() const { return recv_temp_buffer; }
 std::size_t		TCPClient::received_length() { return recv_temp_buffer_length; }
 
 int TCPClient::fd() const { return _fd.get(); }

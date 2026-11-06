@@ -17,7 +17,7 @@ class TCPClient
 
 	// since we are only using 1 thread, we can share the read buffer between clients
 	static const ssize_t recv_temp_buffer_capacity = 4098;
-	static unsigned char recv_temp_buffer[recv_temp_buffer_capacity];
+	static char recv_temp_buffer[recv_temp_buffer_capacity];
 	static std::size_t	recv_temp_buffer_length;
 
 	Fd _fd;
@@ -25,7 +25,7 @@ class TCPClient
 public:
 	explicit TCPClient(int fd);
 
-	unsigned char	*received_data();
+	const char		*received_data() const;
 	std::size_t		received_length();
 
 	// return value is the result from recv(), or 0 if no pending bytes to receive

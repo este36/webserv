@@ -12,7 +12,7 @@ class ClientFactory
 public:
 
 	// the returned task should own the client
-	virtual PollTask *create(TCPClient *client) = 0;
+	virtual PollTask *create(TCPClient *client) const = 0;
 };
 
 }

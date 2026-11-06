@@ -6,7 +6,7 @@
 class EchoTaskFactory : public net::ClientFactory
 {
 public:
-	virtual net::PollTask *create(net::TCPClient *client);
+	virtual net::PollTask *create(net::TCPClient *client) const;
 };
 
 #endif // ECHO_TASK_FACTORY_HPP

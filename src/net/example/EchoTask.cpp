@@ -23,7 +23,7 @@ net::PollTask::Result	EchoTask::resume(short revents)
 		if (ret < 0) // error case
 			return net::PollTask::Result(FINISHED, NULL);
 
-		_request_data.append(_client.received_data(), _client.received_length());
+		_request_data.append(_client->received_data(), _client->received_length());
 
 		if (ret > 0)
 			return net::PollTask::Result(WAIT, NULL);

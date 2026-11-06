@@ -29,7 +29,7 @@ TCPClient	*TCPListener::try_accept_client()
 TCPListener::TCPListener(
     const std::string host,
     const int port,
-    ClientFactory& factory
+    const ClientFactory& factory
 ) : _factory(factory)
 {
 	struct addrinfo hints;

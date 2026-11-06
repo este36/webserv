@@ -12,8 +12,8 @@ namespace net
 
 class TCPListener : public PollTask
 {
-	Fd				_fd;
-	ClientFactory&	_factory;
+	Fd						_fd;
+	const ClientFactory&	_factory;
 
 	// immutable
 	TCPListener(const TCPListener&);
@@ -22,7 +22,7 @@ class TCPListener : public PollTask
 	TCPClient	*try_accept_client();
 
 public:
-	TCPListener(const std::string host, const int port, ClientFactory& factory);
+	TCPListener(const std::string host, const int port, const ClientFactory& factory);
 	virtual ~TCPListener();
 
 	Result resume(short revents);

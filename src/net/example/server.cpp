@@ -7,9 +7,13 @@ int main(void)
 {
 	net::PollScheduler scheduler;
 
-	EchoTaskFactory factory;
-
-	scheduler.add(new net::TCPListener("localhost", "8080", factory));
+	scheduler.add(
+		new net::TCPListener(
+			"localhost",
+			8080,
+			EchoTaskFactory()
+		)
+	);
 
 	scheduler.run();
 }
