@@ -7,7 +7,17 @@ using namespace net;
 
 volatile sig_atomic_t PollScheduler::running = 0;
 
-PollScheduler::PollScheduler() {}
+#ifdef POLLRDHUP
+	#define POLL_FATAL (POLLRDHUP | POLLERR | POLLNVAL)
+#else
+	#define POLL_FATAL (POLLERR | POLLNVAL)
+#endif
+
+PollScheduler::PollScheduler()
+{
+	_dead_tasks.reserve(256);
+	_new_tasks.reserve(256);
+}
 
 PollScheduler::~PollScheduler()
 {
@@ -33,7 +43,7 @@ void PollScheduler::setup_signal_handlers()
 	signal(SIGTERM, PollScheduler::signal_handler);
 }
 
-PollScheduler::TaskEntry *PollScheduler::add_task(PollTask *task)
+PollScheduler::TaskEntry *PollScheduler::task_add(PollTask *task)
 {
 	if (task == NULL || task->fd() == -1)
 		return NULL;
@@ -88,7 +98,7 @@ void PollScheduler::delete_entry(TaskEntry *entry)
 
 void PollScheduler::add(PollTask *task)
 {
-	TaskEntry *entry = add_task(task);
+	TaskEntry *entry = task_add(task);
 
 	if (entry == NULL)
 		return;
@@ -96,13 +106,25 @@ void PollScheduler::add(PollTask *task)
 	_root_tasks.push_back(entry);
 }
 
+void PollScheduler::task_stop(TaskEntry *entry)
+{
+	std::vector<TaskEntry *> stack;
+	stack.push_back(entry);
+	while (!stack.empty())
+	{
+		TaskEntry *head = stack.back();
+		stack.pop_back();
+
+		for (std::vector<TaskEntry*>::iterator it = head->children.begin(); it != head->children.end(); ++it)
+			stack.push_back(*it);
+
+		head->pending_removal = true;
+		_dead_tasks.push_back(head);
+	}
+}
+
 void PollScheduler::run()
 {
-	std::vector<TaskEntry *> dead_tasks;
-	dead_tasks.reserve(256);
-	std::vector< std::pair<PollTask *, TaskEntry *> > new_tasks; // task and parent
-	dead_tasks.reserve(256);
-
 	running = 1;
 
 	if (_pollfds.size() == 0)
@@ -117,6 +139,7 @@ void PollScheduler::run()
 		if (ready_count == -1)
 			throw std::runtime_error("poll() failed");
 	
+		// step 1 : execute tasks that are ready to be resumed
 		for (std::vector<pollfd>::iterator it = _pollfds.begin(); it != _pollfds.end(); ++it)
 		{
 			if (it->revents == 0)
@@ -127,39 +150,33 @@ void PollScheduler::run()
 			if (entry->pending_removal)
 				continue;
 
+			// This condition means that every call to task->resume() will not have to deal with poll errors.
+			// POLL_FATAL is a custom macro created for conveniance and cross-platform compatibility
+			if (it->revents & POLL_FATAL)
+			{
+				task_stop(entry);
+				continue;
+			}
+
 			PollTask::Result res = entry->task->resume(it->revents);
 
 			if (res.status == PollTask::FINISHED)
-			{
-				// should cancel subtasks
-				std::vector<TaskEntry *> stack;
-				stack.push_back(entry);
-				while (!stack.empty())
-				{
-					TaskEntry *head = stack.back();
-					stack.pop_back();
-
-					for (std::vector<TaskEntry*>::iterator it = head->children.begin(); it != head->children.end(); ++it)
-						stack.push_back(*it);
-
-					head->pending_removal = true;
-					dead_tasks.push_back(head);
-				}
-			}
+				task_stop(entry);
 			else if (res.child != NULL)
-				new_tasks.push_back(std::make_pair(res.child, entry));
+				_new_tasks.push_back(std::make_pair(res.child, entry));
 
 			it->events = entry->task->events();
 			it->fd = entry->task->fd();
 		}
 
-		for (std::size_t i = 0; i < dead_tasks.size(); ++i)
+		// step 2 : delete cancelled or finished tasks
+		for (std::size_t i = 0; i < _dead_tasks.size(); ++i)
 		{
-			TaskEntry *entry = dead_tasks[i];
+			TaskEntry *entry = _dead_tasks[i];
 			// if the task is a child task, we need to know if the parent is alive or not
 			// if the parent is also dead, then it does not matter anymore
 			if (entry->parent != NULL
-				&& std::find(dead_tasks.begin(), dead_tasks.end(), entry->parent) == dead_tasks.end())
+				&& std::find(_dead_tasks.begin(), _dead_tasks.end(), entry->parent) == _dead_tasks.end())
 			{
 				std::vector<TaskEntry*>::iterator element = std::find(
 					entry->parent->children.begin(),
@@ -170,18 +187,19 @@ void PollScheduler::run()
 				ft::remove_unordered(entry->parent->children, parent_index);
 				entry->parent->task->on_child_finished(entry->task);
 			}
-			delete_entry(dead_tasks[i]);
+			delete_entry(_dead_tasks[i]);
 		}
 
-		for (std::size_t i = 0; i < new_tasks.size(); ++i)
+		// step 3 : register all new tasks that were created
+		for (std::size_t i = 0; i < _new_tasks.size(); ++i)
 		{
-			std::pair< PollTask*, TaskEntry* > *it = &new_tasks[i];
-			TaskEntry *child = add_task(it->first);
+			std::pair< PollTask*, TaskEntry* > *it = &_new_tasks[i];
+			TaskEntry *child = task_add(it->first);
 			child->parent = it->second;
 			child->parent->children.push_back(child);
 		}
 
-		dead_tasks.clear();
-		new_tasks.clear();
+		_dead_tasks.clear();
+		_new_tasks.clear();
 	}
 }

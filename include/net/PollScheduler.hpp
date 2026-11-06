@@ -34,11 +34,16 @@ class PollScheduler
 	std::vector<TaskEntry*>				_root_tasks;
 	std::vector<pollfd>					_pollfds;
 
+	// tasks management
+	std::vector<TaskEntry *>							_dead_tasks;
+	std::vector< std::pair<PollTask *, TaskEntry *> >	_new_tasks; // task and parent
+
 	// immutable
 	PollScheduler(const PollScheduler&);
 	PollScheduler& operator=(const PollScheduler&);
 
-	TaskEntry	*add_task(PollTask *task);
+	TaskEntry	*task_add(PollTask *task);
+	void		task_stop(TaskEntry *entry);
 	void 		delete_entry(TaskEntry* task);
 
 public:

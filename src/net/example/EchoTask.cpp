@@ -16,8 +16,6 @@ EchoTask::~EchoTask()
 
 net::PollTask::Result	EchoTask::resume(short revents)
 {
-	if (revents & POLLRDHUP || revents & POLLERR || revents & POLLNVAL)
-		return net::PollTask::Result(FINISHED, NULL);
 	if (revents & POLLIN)
 	{
 		ssize_t ret = _client->receive(_request_data);
