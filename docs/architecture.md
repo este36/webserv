@@ -24,7 +24,7 @@ Le scheduler est le seul propriétaire des tâches. Les ajouts et suppressions d
 Pour ce faire chaque tâche est en fait ce qu'on appelle une machine à état. elle connait son `state`, peut naviguer entre les états comme elle veut, et décide quand elle est finie.
 
 ```cpp
-Task::StatusEnum Task::resume()
+Task::Result Task::resume(short events)
 {
     switch (_state)
     {
@@ -33,17 +33,16 @@ Task::StatusEnum Task::resume()
             do_something();
             maybe_go_end();
             maybe_go_second_step();
-            return Task::WAIT;
+            return Task::Result(Task::WAIT, NULL);
         } break;
         case SECOND_STEP: {
             do_something();
             maybe_go_back_first_step();
             maybe_go_end();
-            maybe_create_another_task();
-            return Task::WAIT;
+            return Task::Result(Task::WAIT, maybe_create_another_task());
         } break;
         case END {
-            return Task::FINISHED;
+            return Task::Result(Task::FINISHED, NULL);
         };
         default: {
             // Unreachable
@@ -53,26 +52,22 @@ Task::StatusEnum Task::resume()
 }
 ```
 
-Dans notre cas, le scheduler n'est pas générique : il est spécifique au polling et à la gestion des requètes sur le réseau.
-Donc il est plus simple de creer directement une classe `PollScheduler` pour ce faire. Chaque `Task` prendras en paramètre le `pollfd`  et le le client / listener associé, par référence.
+Dans notre cas, le scheduler reste générique : il sait surveiller des fds et executer des `PollTask`, mais il ne connait ni les listeners, ni HTTP, ni CGI.
+Donc il est plus simple de creer directement une classe `PollScheduler` pour ce faire.
 
-Le CGI a besoin que les pipes de retour soient surveillées par `poll()`. La solution est que le `PollScheduler` offre une methode pour reveiller une tache en fonction d'un fd.
+Une tâche ne connait pas le scheduler. Elle expose le fd et les événements qu'elle souhaite faire surveiller avec `fd()` et `events()`. Le scheduler relit ces valeurs après chaque `resume()`, ce qui permet à une tâche de changer de fd ou d'événements entre deux étapes.
 
-```cpp
-void PollScheduler::watch(int fd, short events, PollTask* task);
-void PollScheduler::unwatch(int fd);
-```
+Le retour `Result` contient un status et éventuellement une tâche enfant. `WAIT + child` transfère la possession de l'enfant au scheduler et le rattache à la tâche courante. `FINISHED + child` est interdit.
 
-Le scheduler ne possède pas les fds surveillés. La destruction d'une tâche supprime toutes ses surveillances.
+Le scheduler ne possède pas les fds surveillés. La destruction d'une tâche supprime toutes ses surveillances. L'annulation d'un parent annule aussi toute sa descendance, sans appeler `on_child_finished()`.
 
-Le retour des handlers de requêtes sont différents selon les cas :
-Par exemple, le `CGIHandler` retourne un etat de la réponse sous la forme d'une pipe lié au process enfant du CGI
-Le `FileHandler` retourne un fd ou std::ifstream
+Le retour des handlers de requêtes est différent selon les cas :
+- un handler synchrone comme `FileHandler` remplit directement la réponse et retourne `NULL` ;
+- un handler asynchrone comme `CGIHandler` retourne une `PollTask` qui remplira la réponse avant d'être terminée.
 
-Il faut qu'on aie pour le body une notion de streaming, pour que les tâches puisse creer la réponse petit à petit.
+Le body de la réponse est lu par morceaux avec une taille maximale fournie par l'appelant. Il ne connait ni fd ni polling.
 
 Aussi, le parsing des requètes se fait petit à petit.
-Les bodies des requêtes sont conservés en mémoire, avec une taille maximale définie par la configuration. Les messages sont non copiables et la réponse possède son body.
 
 >La plupart des implementations ne resolvent simplement jamais ce problème, car difficile à prédire quand on ne connait pas ces contraintes à l'avance. Il en résulte que souvent le traitement CGI se retrouve un peut partout dans toute les classes, ainsi que pour la logique HTTP
 
@@ -92,33 +87,32 @@ Donc on se retrouve avec les deux librairies et une application (le server web) 
 - `net::PollTask`
 - `net::TCPClient`
 - `net::ClientFactory`
-- `net::TCPListener` - prend en paramêtre un `ClientFactory`
+- `net::TCPListener` - implementation de `net::PollTask`, prend en paramêtre un `ClientFactory` et crée une connexion par client accepté
 
 #### `http`
 **Messages**
 - `HTTP::Message`
 - `HTTP::Request` - hérite de `HTTP::Message` + quelques fields en plus
-- `HTTP::Reponse` - hérite de `HTTP::Message` + quelques fields en plus
-- `HTTP::AStreamableBody` - utilisé comme le corps des messages http
-- `HTTP::PlainBody` - implementation pour une reponse simple
-- `HTTP::CGIBody` - implementation pour les corps de réponse de CGI
+- `HTTP::Response` - hérite de `HTTP::Message` + status code et body streamable
+- `HTTP::AStreamableBody` - utilisé comme le corps des réponses http
+- `HTTP::PlainBody` - implementation pour une reponse simple ou un CGI bufferisé
 - `HTTP::FileBody` - implementation pour les corps de réponse des fichiers
 - `HTTP::RequestParser` - parsing des requête incrémentale (possède aussi une state machine), dechunking et normalisation
-**Logique**
-- `HTTP::ARequestHandler` - utilisé par le router pour dispatch les différentes requètes aux differents handlers
-- `HTTP::StaticFileHandler` - implementation de `HTTP::ARequestHandler`
-- `HTTP::RedirectHandler` - implementation de `HTTP::ARequestHandler`
-- `HTTP::UploadHandler` - implementation de `HTTP::ARequestHandler`
-- `HTTP::CGIHandler`- implementation de `HTTP::ARequestHandler` 
-- `HTTP::DeleteHandler`- implementation de `HTTP::ARequestHandler` 
 
 L'application principale elle se retrouverais dans ces classes :
 - `Server` - classes principale possedant le scheduler, les config, le router et handlers
 - `Router` - dispatch des requetes dans les differants handlers
-- `HttpConnexion` - implementation de `net::PollTask`, gestion d'une requète client
+- `ARequestHandler` - utilisé par le router pour dispatch les différentes requètes aux differents handlers
+- `FileHandler` - implementation synchrone de `ARequestHandler`
+- `RedirectHandler` - implementation de `ARequestHandler`
+- `UploadHandler` - implementation de `ARequestHandler`
+- `CGIHandler` - implementation de `ARequestHandler`, crée une `CGIResponseTask`
+- `DeleteHandler`- implementation de `ARequestHandler`
+- `CGIResponseTask` - implementation de `net::PollTask`, gestion d'un processus CGI
+- `HttpConnexion` - implementation de `net::PollTask`, gestion d'un client et possession de son `TCPClient`
 - `HttpClientFactory` - implementation de `net::ClientFactory`, cree des HttpConnextion en leur donnant la config dédiée et le router.
 
-`HttpConnexion` possède un buffer d'entrée, un buffer de sortie et une méthode `reset()` appelée après chaque réponse en keep-alive.
+`HttpConnexion` possède un buffer d'entrée, un buffer de sortie et une méthode `reset()` appelée après chaque réponse en keep-alive. Elle traite une seule requête active à la fois, mais plusieurs requêtes successives pendant sa durée de vie. Après un reset, les octets déjà présents dans le buffer d'entrée sont parsés immédiatement : la connexion n'attend un nouveau `POLLIN` que s'ils ne suffisent pas à construire la requête suivante.
 
 **Configurations (fichiers `.conf`)**
 - `Config`
@@ -126,14 +120,64 @@ L'application principale elle se retrouverais dans ces classes :
 - `LocationConfig`
 
 Utilitaire :
-- `Fd` - RAII wrapper pour les file descripteurs, connais son type de fd (fichier, socket, pipe)
+- `Fd` - RAII wrapper non copiable pour les file descripteurs
 
 ## Cycle de vie de l'application
 
 - Parsing de la config
-- création des servers (`TCPListeners`)
+- création des servers (`TCPListeners`) avec leur `ClientFactory`
+- ajout de chaque listener comme tâche racine avec `PollScheduler::add()`
 - lancement du `PollScheduler` 
 - gestion des requetes
+
+## 2. Cycle de vie du CGI
+
+`ARequestHandler::handle()` reçoit uniquement une requête et une réponse. Il retourne `NULL` si la réponse est prête, ou une `PollTask*` si un traitement asynchrone est nécessaire. Cela permet de tester chaque handler sans instancier de connexion ou de scheduler.
+
+```cpp
+net::PollTask* CGIHandler::handle(const Request& request, Response& response)
+{
+    return new CGIResponseTask(request, response);
+}
+```
+
+`HttpConnexion` possède la requête et la réponse courantes. La `CGIResponseTask` reçoit une référence à cette réponse et la remplit directement : il n'y a pas de copie de `Response` et la tâche n'a pas besoin de connaitre la connexion. La connexion retourne ensuite `WAIT + child` au scheduler, qui rattache la tâche à son parent.
+
+Pendant le traitement, la connexion est dans l'état `WAITING_FOR_CHILD`. Elle ne parse pas de nouvelle requête et ne demande pas `POLLIN`, afin d'éviter d'être réveillée en boucle par des données qu'elle ne souhaite pas encore lire. Elle continue cependant à traiter les erreurs et la fermeture du client. Les autres connexions restent traitées normalement par le scheduler.
+
+La sortie du pipe n'est pas un body HTTP : elle contient les headers CGI, une ligne vide, puis le body. Dans la version retenue, `CGIResponseTask` bufferise cette sortie avec une taille maximale, puis :
+- parse les headers jusqu'à la première ligne vide ;
+- transforme le header `Status` en status code HTTP, avec `200 OK` par défaut ;
+- copie les autres headers dans la réponse ;
+- place uniquement les octets suivant la ligne vide dans un `PlainBody` ;
+- produit une réponse d'erreur si la sortie est invalide ou dépasse la limite ;
+- ferme les pipes et récupère le processus avec `waitpid()`.
+
+Il n'y a donc pas de `CGIBody` asynchrone dans cette version. Le CGI n'est pas streamé progressivement vers le client : la réponse est envoyée après la fin de la tâche. Une tâche ne surveille qu'un fd à la fois ; les échanges stdin/stdout doivent être séquencés ou découpés en plusieurs tâches.
+
+Quand `CGIResponseTask` retourne `FINISHED`, la réponse doit être entièrement remplie, y compris en cas d'erreur. Le scheduler retire la surveillance du pipe, appelle `HttpConnexion::on_child_finished()` pendant que la tâche est encore vivante, puis la détruit après le dispatch. La connexion passe simplement à `RESPONSE_READY` et redemande `POLLOUT`. Elle est réveillée avec `resume(0)` pour commencer l'envoi.
+
+Si le client se déconnecte avant la fin, le scheduler annule la connexion et toute sa descendance. Dans ce cas, `on_child_finished()` n'est pas appelé et la tâche libère ses ressources dans son destructeur.
+
+## 3. Création des connexions
+
+Chaque `TCPListener` est une `PollTask` racine. Le server crée les listeners avec la `ClientFactory` adaptée à leur configuration, puis les ajoute au scheduler avec `add()`. Il peut donc y avoir plusieurs racines indépendantes, une par socket d'écoute.
+
+Un listener possède son `Fd` et expose toujours `POLLIN`. Quand son socket est prêt, `resume()` accepte un seul client et demande à sa factory de créer la tâche de connexion correspondante. Il retourne ensuite `WAIT + child`. Le scheduler rattache cette `HttpConnexion` au listener, en prend possession et surveille le fd retourné par `HttpConnexion::fd()`.
+
+La possession suit cette hierarchie :
+
+```text
+PollScheduler
+└── possède TCPListener
+    └── possède HttpConnexion
+        └── possède TCPClient
+            └── possède Fd
+```
+
+`TCPClient` est non copiable et responsable des operations `receive()` / `send()`. `HttpConnexion` possède le client accepté et gère uniquement le protocole HTTP. Le scheduler ne connait ni `TCPListener`, ni `TCPClient` : il ne manipule que des `PollTask` et les entiers de fds qu'elles exposent.
+
+Si plusieurs connexions sont en attente, le listener en accepte une par événement. Le fd restant prêt, `poll()` le signalera à nouveau. Cela evite qu'un listener monopolise le scheduler.
 
 ## Diagrame
 
@@ -149,16 +193,34 @@ classDiagram
     namespace net {
         class PollScheduler {
             -pollfds : list~pollfd~
-            -tasks : list~PollTask~
+            -entriesByFd : map~int, TaskEntry~
+            -roots : list~TaskEntry~
+            +add(task : PollTask) void
             +run() void
-            +addTask(task : PollTask) void
-            +removeTask(task : PollTask) void
+            +stop() void
+        }
+
+        class TaskEntry {
+            +task : PollTask
+            +parent : TaskEntry
+            +children : list~TaskEntry~
+            +fd : int
+            +events : short
+            +pendingRemoval : bool
         }
 
         class PollTask {
             <<abstract>>
             #state : State
-            +resume(fd : int, events : short)* StatusEnum
+            +resume(events : short)* TaskResult
+            +fd()* int
+            +events()* short
+            +on_child_finished(child : PollTask) void
+        }
+
+        class TaskResult {
+            +status : StatusEnum
+            +child : PollTask
         }
 
         class StatusEnum {
@@ -175,7 +237,14 @@ classDiagram
 
         class TCPListener {
             -fd : Fd
-            +accept() TCPClient
+            -factory : ClientFactory&
+            -accept_client() TCPClient*
+            +resume(events : short) TaskResult
+        }
+
+        class ClientFactory {
+            <<abstract>>
+            +create(client : TCPClient*)* PollTask
         }
     }
 
@@ -183,39 +252,33 @@ classDiagram
         class Message {
             <<abstract>>
             #headers : map
-            #body : AStreamableBody
         }
 
         class Request {
             +method : string
             +uri : string
             +version : string
+            +body : string
         }
 
         class Response {
             +statusCode : int
-            +reason : string
+            -body : AStreamableBody
         }
 
         class AStreamableBody {
             <<abstract>>
-            +read(output : string&)* ReadResult
-            +fd()* int
+            +read(output : string&, maxBytes : size_t)* ReadResult
         }
 
         class PlainBody
         class FileBody {
             -source : ifstream
         }
-        class CGIBody {
-            -pipe : Fd
-            -pid : pid_t
-        }
 
         class ReadResult {
             <<enumeration>>
             DATA
-            WAIT
             END
             ERROR
         }
@@ -226,24 +289,36 @@ classDiagram
             +isComplete() bool
             +getRequest() Request&
         }
+    }
 
-        class ARequestHandler {
-            <<abstract>>
-            +handle(request : Request&, response : Response&)* void
-        }
+    class ARequestHandler {
+        <<abstract>>
+        +handle(request : Request&, response : Response&)* PollTask
+    }
 
-        class StaticFileHandler
-        class RedirectHandler
-        class UploadHandler
-        class CGIHandler
-        class DeleteHandler
+    class FileHandler
+    class RedirectHandler
+    class UploadHandler
+    class CGIHandler
+    class DeleteHandler
+    class CGIResponseTask {
+        -pipe : Fd
+        -pid : pid_t
+        -response : Response&
     }
 
     class Server {
         -scheduler : PollScheduler
         -router : Router
         -configuration : Config
+        -client_factory : HttpClientFactory
         +run() void
+    }
+
+    class HttpClientFactory {
+        -configuration : Config
+        -router : Router
+        +create(client : TCPClient*) PollTask
     }
 
     class Router {
@@ -251,36 +326,36 @@ classDiagram
     }
 
     class HttpConnexion {
-        -client : TCPClient
+        -client : TCPClient*
         -input : string
         -output : string
         -parser : RequestParser
         -request : Request
         -response : Response
-        +resume(fd : int, events : short) StatusEnum
+        -state : State
+        -events : short
+        +resume(events : short) TaskResult
+        +on_child_finished(child : PollTask) void
         +reset() void
     }
 
     class Fd {
         -value : int
-        -type : FdType
-        +close() void
-    }
-
-    class FdType {
-        <<enumeration>>
-        FILE
-        SOCKET
-        PIPE
+        +get() int
+        +reset(fd : int) void
+        +release() int
+        +set_non_blocking() bool
     }
 
     PollTask <|-- HttpConnexion
+    PollTask <|-- CGIResponseTask
+    PollTask <|-- TCPListener
+    ClientFactory <|-- HttpClientFactory
     Message <|-- Request
     Message <|-- Response
     AStreamableBody <|-- PlainBody
     AStreamableBody <|-- FileBody
-    AStreamableBody <|-- CGIBody
-    ARequestHandler <|-- StaticFileHandler
+    ARequestHandler <|-- FileHandler
     ARequestHandler <|-- RedirectHandler
     ARequestHandler <|-- UploadHandler
     ARequestHandler <|-- CGIHandler
@@ -288,22 +363,32 @@ classDiagram
 
     Server "1" *-- "1" PollScheduler : possède
     Server "1" *-- "1" Router : possède
-    PollScheduler "1" *-- "*" PollTask : ordonnance
-    PollTask ..> StatusEnum : retourne
+    Server "1" *-- "1" HttpClientFactory : possède
+    Server ..> TCPListener : crée
+    PollScheduler "1" *-- "*" TaskEntry : ordonnance
+    TaskEntry --> PollTask : référence
+    TaskEntry --> TaskEntry : parent / enfants
+    PollTask ..> TaskResult : retourne
+    TaskResult ..> StatusEnum : contient
+    TaskResult ..> PollTask : enfant éventuel
     TCPClient "1" *-- "1" Fd : encapsule
     TCPListener "1" *-- "1" Fd : encapsule
-    Fd --> FdType : connaît son type
+    TCPListener --> ClientFactory : utilise
+    HttpClientFactory ..> HttpConnexion : crée
+    HttpClientFactory --> Router : fournit
 
+    HttpConnexion "1" *-- "1" TCPClient : possède
     HttpConnexion "1" *-- "1" RequestParser : parse avec
     HttpConnexion --> Router : délègue
     HttpConnexion --> Request : requête courante
     HttpConnexion --> Response : réponse courante
     RequestParser ..> Request : construit
     Router ..> ARequestHandler : sélectionne
-    ARequestHandler ..> Response : remplit
-    Message "1" *-- "0..1" AStreamableBody : contient
-    StaticFileHandler ..> FileBody : utilise
-    CGIHandler ..> CGIBody : utilise
-    CGIBody "1" *-- "1" Fd : pipe CGI
+    ARequestHandler ..> PollTask : retourne éventuellement
+    Response "1" *-- "0..1" AStreamableBody : possède
+    FileHandler ..> FileBody : utilise
+    CGIHandler ..> CGIResponseTask : crée
+    CGIResponseTask ..> Response : remplit
+    CGIResponseTask "1" *-- "1" Fd : pipe CGI
 
 ```
