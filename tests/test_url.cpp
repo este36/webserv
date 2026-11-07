@@ -117,7 +117,7 @@ bool do_test(TestData data, TestType test_type)
 
 bool do_create_test(CreateTestData data)
 {
-	std::pair<URL, bool> create_res = URL::create_from_request_target(data.input);
+	std::pair<URL, bool> create_res = URL::create_from_raw_target(data.input);
 
 	if (create_res.second != data.expect_ok)
 	{
