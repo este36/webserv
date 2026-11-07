@@ -117,31 +117,34 @@ void ConfigParser::_parseServer(size_t &i, std::vector<std::string> &token, Conf
 }
 
 //On controle le format du root.
-//Il doit commencer forcement soit / (absolut path) soit ./ (relative path) ../
+//Il doit commencer forcement soit / (absolut path) soit ./ (relative path) ../ et avoir quelque chose après.
 bool ConfigParser::_rootFormatControl(const std::string &root)
 {
-	size_t i = 0;
+	if (root.empty())
+		return true;
 
+	size_t i = 0;
+	
 	if (root[i] == '.')
 	{
 		i++;
 
 		if (root[i] == '.')
-			if (root[++i] == '/')
+			if (root[++i] == '/' && root[++i] != '\0')
 				return false;
 			else
 				return true;
-		else if (root[i] == '/')
+		else if (root[i] == '/' && root[++i] != '\0')
 			return false;
 
 	}
-	else if (root[i] == '/')
+	else if (root[i] == '/' && root[++i] != '\0')
 		return false;
 
 	return true;
 }
 
-void control_of_repeated_methods(std::vector<std::string> &methods)
+static void control_of_repeated_methods(std::vector<std::string> &methods)
 {
 	size_t control_GET = 0;
 	size_t control_POST = 0;
@@ -204,7 +207,7 @@ void ConfigParser::_parseLocation(size_t &i, std::vector<std::string> &token, Se
 			else if (token[i] == "off")
 				location.auto_index = false;
 			else
-				auto_index_control = 42;
+				throw std::runtime_error("Autoindex only accepts the on or off options");
 	
 			i++;
 		}
@@ -220,13 +223,14 @@ void ConfigParser::_parseLocation(size_t &i, std::vector<std::string> &token, Se
 			while (i < token.size() && token[i] != ";")
 			{
 				location.accepts_methods.push_back(token[i]);
-				control_of_repeated_methods(location.accepts_methods);
 				i++;
 			}
 		
 			if (location.accepts_methods.empty())
 				throw std::runtime_error("At least one method is required");
-		
+
+			control_of_repeated_methods(location.accepts_methods);				//comment: controler si les methods se répetent ex: GET GET POST.
+
 			i++;
 		}
 		else
