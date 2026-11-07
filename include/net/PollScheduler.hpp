@@ -27,6 +27,7 @@ class PollScheduler
 		bool					pending_removal;
 	
 		bool operator==(const TaskEntry& rhs);
+		TaskEntry(PollTask *task);
 	};
 
 	std::list<TaskEntry>				_tasks;

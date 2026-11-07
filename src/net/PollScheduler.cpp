@@ -32,6 +32,8 @@ PollScheduler::~PollScheduler()
 	}
 }
 
+PollScheduler::TaskEntry::TaskEntry(PollTask *t) : task(t), parent(NULL), pending_removal(false) {}
+
 void PollScheduler::signal_handler(int)
 {
 	PollScheduler::running = 1;
@@ -47,7 +49,7 @@ PollScheduler::TaskEntry *PollScheduler::task_add(PollTask *task)
 {
 	if (task == NULL || task->fd() == -1)
 		return NULL;
-	_tasks.push_back((TaskEntry){ .task = task });
+	_tasks.push_back(TaskEntry(task));
 
 	TaskEntry& entry = _tasks.back();
 
@@ -57,6 +59,7 @@ PollScheduler::TaskEntry *PollScheduler::task_add(PollTask *task)
 		_pollfds.push_back((pollfd){
 			.fd = task->fd(),
 			.events = task->events(),
+			.revents = 0
 		});
 	}
 
