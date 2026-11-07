@@ -123,6 +123,7 @@ short HttpConnexion::events() const
 		case PERFORM_WRITE_HEAD: return POLLOUT;
 		case PERFORM_WRITE_BODY: return POLLOUT;
 		case PERFORM_READ: return POLLIN;
+		case WAIT_FOR_CHILD_RESPONSE: return 0;
 		default: throw std::runtime_error("unreachable");
 	}
 }
