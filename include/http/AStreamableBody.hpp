@@ -3,6 +3,7 @@
 
 #include <string>
 #include <cstddef>
+#include <sys/types.h>
 
 namespace http
 {
