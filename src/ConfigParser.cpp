@@ -144,6 +144,10 @@ bool ConfigParser::_rootFormatControl(const std::string &root)
 	return true;
 }
 
+//Controler si les methods se répetent:
+//Seulement une directive error exemple:  GET GET POST.
+//Au minimum une directive, au maximum trois.
+//Les seules directives acceptées sont: GET, POST et DELETE.
 static void control_of_repeated_methods(std::vector<std::string> &methods)
 {
 	size_t control_GET = 0;
@@ -170,6 +174,65 @@ static void control_of_repeated_methods(std::vector<std::string> &methods)
 	if (control_GET + control_POST + control_DELETE < 1)
     	throw std::runtime_error("At least one HTTP method is required");
 
+}
+
+//Controler sans atoi pour eviter debordement ou error et avoir comme retour "0" de la part d'atoi
+static bool isValidErrorCode(const std::string &code)
+{
+    int value = 0;
+
+    if (code.empty())
+        return false;
+    for (size_t i = 0; i < code.size(); ++i)
+    {
+        if (!std::isdigit(static_cast<unsigned char>(code[i])))
+            return false;
+        value = value * 10 + (code[i] - '0');
+        if (value > 599)
+            return false;
+    }
+    return (value >= 300);
+}
+
+//Controler le std::map avec son key and value
+//controler au minimum 2 argument, qui ne se repetent pas.
+//ça doit commencer par "/" et avoir quelque chose après
+//le code d'error doit etre entre 300 et 599
+static void control_error_page(const std::vector<std::string> &tokens, size_t &i, std::map<int, std::string> &error_pages)
+{
+	std::vector<std::string>		args;
+	std::map<int, std::string>		pending;
+
+	++i;																//comment: je saute "error_page".
+	
+	while (i < tokens.size() && tokens[i] != ";")
+	{
+		args.push_back(tokens[i]);
+		++i;
+	}
+	
+	if (args.size() < 2 || i == tokens.size())							//comment: au minimum 2 arguments.
+		throw std::runtime_error("Invalid error_page arguments");	
+	
+	const std::string &destination = args.back();
+	
+	if (destination[0] != '/' || destination[1] == '\0')				//comment: la route doit commencer par "/" et il doit avoir quelque chose après.
+		throw std::runtime_error("Invalid error_page destination");	
+	
+	for (size_t j = 0; j < args.size() - 1; ++j)
+	{
+	    if (!isValidErrorCode(args[j]))
+	    	throw std::runtime_error("Invalid HTTP error code");		//comment: control de code error entre 300 et 599, et si c'est une chiffre valide.
+			
+		int	code = std::atoi(args[j].c_str());
+	    
+		if (error_pages.count(code) || pending.count(code))				//comment: control de repetition dans la même ligne ou dans une autre "error_page" suivant.
+	    	throw std::runtime_error("Duplicate error_page code");
+
+		pending[code] = destination;
+	}
+
+	error_pages.insert(pending.begin(), pending.end());
 }
 
 void ConfigParser::_parseLocation(size_t &i, std::vector<std::string> &token, ServerConfig &server)
@@ -229,8 +292,13 @@ void ConfigParser::_parseLocation(size_t &i, std::vector<std::string> &token, Se
 			if (location.accepts_methods.empty())
 				throw std::runtime_error("At least one method is required");
 
-			control_of_repeated_methods(location.accepts_methods);				//comment: controler si les methods se répetent ex: GET GET POST.
+			control_of_repeated_methods(location.accepts_methods);
 
+			i++;
+		}
+		else if (token[i] == "error_page")
+		{
+			control_error_page(token, i, location.error_pages);
 			i++;
 		}
 		else
