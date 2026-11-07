@@ -13,7 +13,7 @@ HttpConnexion::~HttpConnexion()
 	delete _client;
 }
 
-const ARequestHandler&	HttpConnexion::dispatch_request(const http::Request& request)
+RequestHandler	HttpConnexion::dispatch_request(const http::Request& request)
 {
 	(void)request;
 	throw std::runtime_error("TODO");
@@ -50,9 +50,9 @@ net::PollTask::Result	HttpConnexion::resume(short revents)
 
 			const http::Request& request = _request_parser.request();
 
-			const ARequestHandler& handler = dispatch_request(request);
+			RequestHandler handler = dispatch_request(request);
 
-			net::PollTask *child = handler.handle(_server_config, request, _response);
+			net::PollTask *child = handler(_server_config, request, _response);
 
 			if (child != NULL)
 			{

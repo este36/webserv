@@ -4,7 +4,7 @@
 #include "net/PollTask.hpp"
 #include "net/TCPClient.hpp"
 #include "http/Response.hpp"
-#include "ARequestHandler.hpp"
+#include "RequestHandler.hpp"
 #include "ServerConfig.hpp"
 #include "RequestParser.hpp"
 
@@ -31,10 +31,7 @@ class HttpConnexion : public net::PollTask
 
 	// `dispatch_request` act as the router of the server.
 	// It takes a complete request, check it with the config, and returns the corresponding handler
-	//
-	// returns an rvalue reference to the request handler.
-	// every handlers should be created and returned directly like `return X(...);` in the function body
-	const ARequestHandler&	dispatch_request(const http::Request& request);
+	RequestHandler	dispatch_request(const http::Request& request);
 
 	void prepare_response();
 
