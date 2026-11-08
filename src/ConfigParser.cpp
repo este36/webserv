@@ -1,7 +1,9 @@
 #define DEFAULT_SERVER 8080
+#define SIZE_MAX 18446744073709551615UL
 
 #include "ConfigParser.hpp"
 #include <stdexcept>							//comment: only for rutine_error, for the moment, mybe I will change later
+
 
 ConfigParser::ConfigParser()
 {}
@@ -56,6 +58,7 @@ std::vector<std::string> ConfigParser::_tokenizer(const std::string &content)
 	return token;
 }
 
+
 //On controle si le string est vide, et si il a des caratères alphanumeriques.
 //Om accepte . - et _ des chifres et lettres  
 bool ConfigParser::_controlSpaceAndAlphanumeric(const std::string &name)
@@ -72,11 +75,129 @@ bool ConfigParser::_controlSpaceAndAlphanumeric(const std::string &name)
     return false;
 }
 
+
+//Controler le client_max_body_size : nombre + suffixe optionnel (k, m, g)
+static size_t parse_client_max_body_size(const std::string &value)
+{
+	if (value.empty())
+		throw std::runtime_error("client_max_body_size: empty value");
+
+	size_t			number		= 0;
+	size_t			i 			= 0;
+	size_t			multiplier 	= 1;
+	std::string		suffix 		= "";
+
+	while (i < value.size() && std::isdigit(static_cast<unsigned char>(value[i]))) //comment: lire les chiffres
+	{
+		// Contrôle de dépassement
+		if (number > (SIZE_MAX / 10) || (number * 10 + (value[i] - '0')) < number)
+			throw std::runtime_error("client_max_body_size: value too large");
+		number = number * 10 + (value[i] - '0');
+		i++;
+	}
+
+	// Si pas de chiffres, erreur
+	if (i == 0)
+		throw std::runtime_error("client_max_body_size: must start with a digit");
+
+	// Lire le suffixe s'il existe
+	if (i < value.size())
+	{
+		suffix = value.substr(i);
+		if (suffix == "k" || suffix == "K")
+			multiplier = 1024;
+		else if (suffix == "m" || suffix == "M")
+			multiplier = 1024 * 1024;
+		else if (suffix == "g" || suffix == "G")
+			multiplier = 1024 * 1024 * 1024;
+		else
+			throw std::runtime_error("client_max_body_size: invalid suffix");
+	}
+
+	// Contrôle de dépassement final
+	if (number > SIZE_MAX / multiplier)
+		throw std::runtime_error("client_max_body_size: value too large");
+
+	number *= multiplier;
+
+	if (number == 0)
+		throw std::runtime_error("client_max_body_size: must be > 0");
+
+	return number;
+}
+
+//Controler sans atoi pour eviter debordement ou error et avoir comme retour "0" de la part d'atoi
+static bool isValidErrorCode(const std::string &code)
+{
+    int value = 0;
+
+    if (code.empty())
+        return false;
+    for (size_t i = 0; i < code.size(); ++i)
+    {
+        if (!std::isdigit(static_cast<unsigned char>(code[i])))
+            return false;
+        value = value * 10 + (code[i] - '0');
+        if (value > 599)
+            return false;
+    }
+    return (value >= 300);
+}
+
+
+//Controler le std::map avec son key and value
+//controler au minimum 2 argument, qui ne se repetent pas.
+//ça doit commencer par "/" et avoir quelque chose après
+//le code d'error doit etre entre 300 et 599
+static void control_error_page(const std::vector<std::string> &tokens, size_t &i, std::map<int, std::string> &error_pages)
+{
+	std::vector<std::string>		args;
+	std::map<int, std::string>		pending;
+
+	++i;																//comment: je saute "error_page".
+	
+	while (i < tokens.size() && tokens[i] != ";")
+	{
+		args.push_back(tokens[i]);
+		++i;
+	}
+	
+	if (args.size() < 2 || i == tokens.size())							//comment: au minimum 2 arguments.
+		throw std::runtime_error("Invalid error_page arguments");	
+	
+	const std::string &destination = args.back();
+	
+	if (destination[0] != '/' || destination[1] == '\0')				//comment: la route doit commencer par "/" et il doit avoir quelque chose après.
+		throw std::runtime_error("Invalid error_page destination");	
+	
+	for (size_t j = 0; j < args.size() - 1; ++j)
+	{
+	    if (!isValidErrorCode(args[j]))
+	    {
+			throw std::runtime_error("Invalid HTTP error code");		//comment: control de code error entre 300 et 599, et si c'est une chiffre valide.
+		}
+		int	code = std::atoi(args[j].c_str());
+	    
+		if (error_pages.count(code) || pending.count(code))				//comment: control de repetition dans la même ligne ou dans une autre "error_page" suivant.
+	    {
+			throw std::runtime_error("Duplicate error_page code");
+		}
+		
+		pending[code] = destination;
+	}
+
+	error_pages.insert(pending.begin(), pending.end());
+	i++; 																//comment: sauter dernière ";"
+}
+
+
 //pasage d'information vers les servers (vector avec tous les servers)
 void ConfigParser::_parseServer(size_t &i, std::vector<std::string> &token, Config &config)
 {
-	size_t 			listen_control 		= 0;
-	size_t			server_name_control = 0;
+	size_t 			listen_control 					= 0;
+	size_t			server_name_control 			= 0;
+	size_t			client_max_body_size_control 	= 0;
+
 	ServerConfig 	server;
 	i += 2;														//comment: sauter le mot "server" et "{"
 
@@ -100,6 +221,16 @@ void ConfigParser::_parseServer(size_t &i, std::vector<std::string> &token, Conf
 			_parseLocation(i, token, server);
 		else if (token[i] == "error_page")
 			control_error_page(token, i, server.error_pages);	//comment: control de "error_pages", pour tout le serveur
+		else if (token[i] == "client_max_body_size")
+		{
+			client_max_body_size_control++;
+			if (client_max_body_size_control > 1)
+				throw std::runtime_error("Only one client_max_body_size per server");
+			i++;
+
+			server.client_max_body_size = parse_client_max_body_size(token[i]);
+			i++; // comment: sauter ";"
+		}
 		else
 			i++;
 	}
@@ -176,73 +307,14 @@ static void control_of_repeated_methods(std::vector<std::string> &methods)
 
 }
 
-//Controler sans atoi pour eviter debordement ou error et avoir comme retour "0" de la part d'atoi
-static bool isValidErrorCode(const std::string &code)
-{
-    int value = 0;
-
-    if (code.empty())
-        return false;
-    for (size_t i = 0; i < code.size(); ++i)
-    {
-        if (!std::isdigit(static_cast<unsigned char>(code[i])))
-            return false;
-        value = value * 10 + (code[i] - '0');
-        if (value > 599)
-            return false;
-    }
-    return (value >= 300);
-}
-
-//Controler le std::map avec son key and value
-//controler au minimum 2 argument, qui ne se repetent pas.
-//ça doit commencer par "/" et avoir quelque chose après
-//le code d'error doit etre entre 300 et 599
-static void control_error_page(const std::vector<std::string> &tokens, size_t &i, std::map<int, std::string> &error_pages)
-{
-	std::vector<std::string>		args;
-	std::map<int, std::string>		pending;
-
-	++i;																//comment: je saute "error_page".
-	
-	while (i < tokens.size() && tokens[i] != ";")
-	{
-		args.push_back(tokens[i]);
-		++i;
-	}
-	
-	if (args.size() < 2 || i == tokens.size())							//comment: au minimum 2 arguments.
-		throw std::runtime_error("Invalid error_page arguments");	
-	
-	const std::string &destination = args.back();
-	
-	if (destination[0] != '/' || destination[1] == '\0')				//comment: la route doit commencer par "/" et il doit avoir quelque chose après.
-		throw std::runtime_error("Invalid error_page destination");	
-	
-	for (size_t j = 0; j < args.size() - 1; ++j)
-	{
-	    if (!isValidErrorCode(args[j]))
-	    	throw std::runtime_error("Invalid HTTP error code");		//comment: control de code error entre 300 et 599, et si c'est une chiffre valide.
-			
-		int	code = std::atoi(args[j].c_str());
-	    
-		if (error_pages.count(code) || pending.count(code))				//comment: control de repetition dans la même ligne ou dans une autre "error_page" suivant.
-	    	throw std::runtime_error("Duplicate error_page code");
-
-		pending[code] = destination;
-	}
-
-	error_pages.insert(pending.begin(), pending.end());
-	i++; 																//comment: sauter dernière ";"
-}
 
 void ConfigParser::_parseLocation(size_t &i, std::vector<std::string> &token, ServerConfig &server)
 {
 	LocationConfig 		location;
-	size_t				root_control = 			0;
-	size_t				index_control = 		0;
-	size_t				auto_index_control =	0;
-	size_t				allow_method_control = 	0;
+	size_t				root_control = 					0;
+	size_t				index_control = 				0;
+	size_t				auto_index_control =			0;
+	size_t				allow_method_control = 			0;
 
 	i += 2;														//comment: saluter "\" et "{"
 
