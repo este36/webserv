@@ -306,14 +306,78 @@ static void control_of_repeated_methods(std::vector<std::string> &methods)
 
 }
 
+//Control de code pour return:
+//numbre entre 300 et 599.
+//seulement des chiffres
+//il doit pas être vide
+static int parseReturnCode(const std::string &value)
+{
+    int code = 0;
+
+    if (value.empty())
+        throw std::runtime_error("return: empty HTTP code");
+
+    for (size_t i = 0; i < value.size(); i++)
+    {
+        if (!std::isdigit(static_cast<unsigned char>(value[i])))
+            throw std::runtime_error("return: invalid HTTP code");
+
+        code = code * 10 + (value[i] - '0');
+
+        if (code > 599)
+            throw std::runtime_error("return: invalid HTTP code");
+    }
+
+    if (code < 300)
+        throw std::runtime_error("return: invalid HTTP code");
+
+    return code;
+}
+
+//control return:
+//au maximum 2 parametres, au minimum 1 parametre, pas vide, code entre 300 et 599, httml doit commencer par "/"
+static void control_return(const std::vector<std::string> &tokens, size_t &i, LocationConfig &location)
+{
+	std::vector<std::string> args;
+
+	i++;
+
+	while (i < tokens.size() && tokens[i] != ";")
+	{
+		args.push_back(tokens[i]);
+		i++;
+	}
+
+	if (args.empty() || args.size() > 2 || i == tokens.size())
+		throw std::runtime_error("Invalid return arguments");
+
+	bool has_url = (args.size() == 2 || !std::isdigit(static_cast<unsigned char>(args[0][0])));
+
+	if (args.size() == 1 && !has_url)
+		location.redirect_code = parseReturnCode(args[0]);
+	else if (args.size() == 2)
+		location.redirect_code = parseReturnCode(args[0]);	
+	if (has_url)
+	{
+		const std::string &url = args.back();	//comment: je doir controler, que soit pas vide, que n'aille seulement "/"... bref, le reste
+	    if	(url.empty() || url == "/" || 
+			(url[0] != '/' && url.compare(0, 7, "http://") != 0 && url.compare(0, 8, "https://") != 0))
+	    		throw std::runtime_error("Invalid return URL");
+
+		location.redirect_url = url;
+	}
+
+	i++;
+}
 
 void ConfigParser::_parseLocation(size_t &i, std::vector<std::string> &token, ServerConfig &server)
 {
 	LocationConfig 		location;
-	size_t				root_control = 					0;
-	size_t				index_control = 				0;
-	size_t				auto_index_control =			0;
-	size_t				allow_method_control = 			0;
+	size_t				root_control 				= 0;
+	size_t				index_control				= 0;
+	size_t				auto_index_control 			= 0;
+	size_t				allow_method_control 		= 0;
+	size_t				return_control 				= 0;
 
 	i += 2;														//comment: saluter "\" et "{"
 
@@ -322,6 +386,9 @@ void ConfigParser::_parseLocation(size_t &i, std::vector<std::string> &token, Se
 		if (token[i] == "root")
 		{
 			root_control++;
+			if (root_control > 1)
+				throw std::runtime_error("Only one root is accepted");
+
 			location.root = token[++i];
 			if (ConfigParser::_rootFormatControl(token [i]))
 				throw std::runtime_error("location isn't valid");
@@ -330,12 +397,17 @@ void ConfigParser::_parseLocation(size_t &i, std::vector<std::string> &token, Se
 		else if (token[i] == "index")
 		{
 			index_control++;
+			if (index_control > 1)
+				throw std::runtime_error("Only one index is accepted");
+
 			location.index = token[++i];
 			i++;												//comment: sauter ";"
 		}
 		else if (token[i] == "autoindex")
 		{
 			auto_index_control++;
+			if (auto_index_control > 1)
+				throw std::runtime_error("Only one auto_index is accepted");
 
 			if (token[++i] == "on")
 				location.auto_index = true;
@@ -370,18 +442,19 @@ void ConfigParser::_parseLocation(size_t &i, std::vector<std::string> &token, Se
 		}
 		else if (token[i] == "error_page")
 			control_error_page(token, i, location.error_pages);
+		else if (token[i] == "return")
+		{
+			return_control++;
+			if (return_control > 1)
+				throw std::runtime_error("Only one return directive is accepted");
+
+			control_return(token, i, location);
+		}
 		else
 			i++;
 	}
 	i++;														//comment: sauter dernière "}"
 	
-	if (root_control > 1)
-		throw std::runtime_error("Only one root is accepted");
-	else if (index_control > 1)
-		throw std::runtime_error("Only one index is accepted");
-	else if (auto_index_control > 1)
-		throw std::runtime_error("Only one auto_index is accepted");
-
 	server.location.push_back(location);
 }
 
