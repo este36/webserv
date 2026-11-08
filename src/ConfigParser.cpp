@@ -1,9 +1,9 @@
 #define DEFAULT_SERVER 8080
-#define SIZE_MAX 18446744073709551615UL
+#define SIZE_MAX std::numeric_limits<size_t>::max()
 
 #include "ConfigParser.hpp"
 #include <stdexcept>							//comment: only for rutine_error, for the moment, mybe I will change later
-
+#include <limits>
 
 ConfigParser::ConfigParser()
 {}
@@ -87,20 +87,17 @@ static size_t parse_client_max_body_size(const std::string &value)
 	size_t			multiplier 	= 1;
 	std::string		suffix 		= "";
 
-	while (i < value.size() && std::isdigit(static_cast<unsigned char>(value[i]))) //comment: lire les chiffres
+	while (i < value.size() && std::isdigit(static_cast<unsigned char>(value[i])))	//comment: lire les chiffres
 	{
-		// Contrôle de dépassement
-		if (number > (SIZE_MAX / 10) || (number * 10 + (value[i] - '0')) < number)
-			throw std::runtime_error("client_max_body_size: value too large");
+		if (number > (SIZE_MAX / 10) || (number * 10 + (value[i] - '0')) < number)	//comment: deux controles ... "si jamais xD"
+			throw std::runtime_error("client_max_body_size: value too large");		//comment: si number depase size_max/10, ça veut dire qu'il va avoir overflow (si on fait *10 après)
 		number = number * 10 + (value[i] - '0');
 		i++;
 	}
 
-	// Si pas de chiffres, erreur
 	if (i == 0)
 		throw std::runtime_error("client_max_body_size: must start with a digit");
 
-	// Lire le suffixe s'il existe
 	if (i < value.size())
 	{
 		suffix = value.substr(i);
@@ -114,8 +111,7 @@ static size_t parse_client_max_body_size(const std::string &value)
 			throw std::runtime_error("client_max_body_size: invalid suffix");
 	}
 
-	// Contrôle de dépassement final
-	if (number > SIZE_MAX / multiplier)
+	if (number > SIZE_MAX / multiplier)											//comment: MAX/multipler est superior a number, pas de soucis, par contre...
 		throw std::runtime_error("client_max_body_size: value too large");
 
 	number *= multiplier;
@@ -182,7 +178,7 @@ static void control_error_page(const std::vector<std::string> &tokens, size_t &i
 	    {
 			throw std::runtime_error("Duplicate error_page code");
 		}
-		
+
 		pending[code] = destination;
 	}
 
@@ -227,6 +223,9 @@ void ConfigParser::_parseServer(size_t &i, std::vector<std::string> &token, Conf
 			if (client_max_body_size_control > 1)
 				throw std::runtime_error("Only one client_max_body_size per server");
 			i++;
+
+			if (i + 1 >= token.size() || token[i + 1] != ";")	//comment: si après il n'y a pas de ";" = Error.
+    			throw std::runtime_error("Invalid client_max_body_size syntax, only one numeric parameter, ex: 100k");
 
 			server.client_max_body_size = parse_client_max_body_size(token[i]);
 			i++; // comment: sauter ";"
