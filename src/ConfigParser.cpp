@@ -97,9 +97,9 @@ void ConfigParser::_parseServer(size_t &i, std::vector<std::string> &token, Conf
 			i++;												//comment: sauter ";"
 		}
 		else if (token[i] == "location")
-		{
 			_parseLocation(i, token, server);
-		}
+		else if (token[i] == "error_page")
+			control_error_page(token, i, server.error_pages);	//comment: control de "error_pages", pour tout le serveur
 		else
 			i++;
 	}
@@ -233,6 +233,7 @@ static void control_error_page(const std::vector<std::string> &tokens, size_t &i
 	}
 
 	error_pages.insert(pending.begin(), pending.end());
+	i++; 																//comment: sauter dernière ";"
 }
 
 void ConfigParser::_parseLocation(size_t &i, std::vector<std::string> &token, ServerConfig &server)
@@ -297,10 +298,7 @@ void ConfigParser::_parseLocation(size_t &i, std::vector<std::string> &token, Se
 			i++;
 		}
 		else if (token[i] == "error_page")
-		{
 			control_error_page(token, i, location.error_pages);
-			i++;
-		}
 		else
 			i++;
 	}

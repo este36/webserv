@@ -15,6 +15,7 @@ struct ServerConfig
 	size_t							client_name_body_max;
 	std::string 					server_name;
 	std::vector<LocationConfig>		location;
+	std::map<int, std::string>		error_pages;			//comment: "error pages" contemplé pour tout le serveur
 };
 
 #endif //SERVERCONFIG_HPP
