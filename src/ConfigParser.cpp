@@ -306,6 +306,41 @@ static void control_of_repeated_methods(std::vector<std::string> &methods)
 
 }
 
+static bool isValidUrlChar(char c)
+{
+	return (std::isalnum(static_cast<unsigned char>(c))
+		|| c == '-' || c == '_' || c == '.'
+		|| c == '~' || c == '/' || c == '?'
+		|| c == '&' || c == '=' || c == '%'
+		|| c == '#' || c == '+' || c == ':'
+		|| c == '@');
+}
+
+static bool isValidReturnUrl(const std::string &url)
+{
+	if (url.empty())
+		return false;
+
+	size_t start = 0;
+
+	if (url.compare(0, 7, "http://") == 0)
+		start = 7;
+	else if (url.compare(0, 8, "https://") == 0)
+		start = 8;
+	else if (url[0] == '/')
+		start = 1;
+
+	if (start > 0 && start == url.size())
+		return false;
+
+	for (size_t i = start; i < url.size(); ++i)
+	{
+		if (!isValidUrlChar(url[i]))
+			return false;
+	}	
+	return true;
+}
+
 //Control de code pour return:
 //numbre entre 300 et 599.
 //seulement des chiffres
@@ -359,11 +394,9 @@ static void control_return(const std::vector<std::string> &tokens, size_t &i, Lo
 		location.redirect_code = parseReturnCode(args[0]);	
 	if (has_url)
 	{
-		const std::string &url = args.back();	//comment: je doir controler, que soit pas vide, que n'aille seulement "/"... bref, le reste
-	    if	(url.empty() || url == "/" || 
-			(url[0] != '/' && url.compare(0, 7, "http://") != 0 && url.compare(0, 8, "https://") != 0))
-	    		throw std::runtime_error("Invalid return URL");
-
+		const std::string &url = args.back();	//comment: control empy args, que n'aille seulement "/"... bref, le reste
+	    if (!isValidReturnUrl(url))
+			throw std::runtime_error("Invalid returns url");
 		location.redirect_url = url;
 	}
 
