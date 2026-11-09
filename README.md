@@ -2,34 +2,28 @@
 
 ## Instructions
 
-Compiler :
+### Compiler :
 
 ```sh
 make
 ```
 
-Rebuild complet :
+### Rebuild complet :
 
 ```sh
 make re
 ```
 
-Lancer les tests :
+### Lancer les tests :
 
 ```sh
 make run_tests
 ```
 
-Check du formatage :
+### Ajouter un nouveau test :
+- Créer un fichier `test_X.cpp` dans le dossier `tests` qui contient une fonction `main()`. Si le process retourne 0 le test est considéré comme passé.
+-  Mettre à jour la variable `TESTS_SRCS` dans le `Makefile` avec le nouveau fichier.
 
-```sh
-make lint
-```
-
-Fix automatique du formatage :
-
-```sh
-make fix-lint
-```
+### Contribuer
 
 Voir [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md) pour plus de détails.
