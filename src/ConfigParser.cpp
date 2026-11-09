@@ -260,10 +260,12 @@ bool ConfigParser::_rootFormatControl(const std::string &root)
 		i++;
 
 		if (root[i] == '.')
+		{
 			if (root[++i] == '/' && root[++i] != '\0')
 				return false;
 			else
 				return true;
+		}
 		else if (root[i] == '/' && root[++i] != '\0')
 			return false;
 
@@ -306,14 +308,20 @@ static void control_of_repeated_methods(std::vector<std::string> &methods)
 
 }
 
-static bool isValidUrlChar(char c)
+static bool isValidUrlChar(char c, bool executable)
 {
-	return (std::isalnum(static_cast<unsigned char>(c))
+	if (std::isalnum(static_cast<unsigned char>(c))
 		|| c == '-' || c == '_' || c == '.'
-		|| c == '~' || c == '/' || c == '?'
-		|| c == '&' || c == '=' || c == '%'
-		|| c == '#' || c == '+' || c == ':'
-		|| c == '@');
+		|| c == '/')
+		return true;
+
+	if (!executable
+		&& (c == '~' || c == '?' || c == '&'
+		|| c == '=' || c == '%' || c == '#'
+		|| c == '+' || c == ':' || c == '@'))
+		return true;
+
+	return false;
 }
 
 static bool isValidReturnUrl(const std::string &url)
@@ -335,7 +343,7 @@ static bool isValidReturnUrl(const std::string &url)
 
 	for (size_t i = start; i < url.size(); ++i)
 	{
-		if (!isValidUrlChar(url[i]))
+		if (!isValidUrlChar(url[i], false))
 			return false;
 	}	
 	return true;
@@ -411,6 +419,7 @@ void ConfigParser::_parseLocation(size_t &i, std::vector<std::string> &token, Se
 	size_t				auto_index_control 			= 0;
 	size_t				allow_method_control 		= 0;
 	size_t				return_control 				= 0;
+	size_t				upload_store_control 		= 0;
 
 	i += 2;														//comment: saluter "\" et "{"
 
@@ -420,18 +429,18 @@ void ConfigParser::_parseLocation(size_t &i, std::vector<std::string> &token, Se
 		{
 			root_control++;
 			if (root_control > 1)
-				throw std::runtime_error("Only one root is accepted");
+				throw std::runtime_error("Only one root directive is accepted");
 
 			location.root = token[++i];
 			if (ConfigParser::_rootFormatControl(token [i]))
-				throw std::runtime_error("location isn't valid");
+				throw std::runtime_error("Location path isn't valid");
 			i++;												//comment: sauter ";"
 		}
 		else if (token[i] == "index")
 		{
 			index_control++;
 			if (index_control > 1)
-				throw std::runtime_error("Only one index is accepted");
+				throw std::runtime_error("Only one index directive is accepted");
 
 			location.index = token[++i];
 			i++;												//comment: sauter ";"
@@ -440,7 +449,7 @@ void ConfigParser::_parseLocation(size_t &i, std::vector<std::string> &token, Se
 		{
 			auto_index_control++;
 			if (auto_index_control > 1)
-				throw std::runtime_error("Only one auto_index is accepted");
+				throw std::runtime_error("Only one auto_index directive is accepted");
 
 			if (token[++i] == "on")
 				location.auto_index = true;
@@ -482,6 +491,51 @@ void ConfigParser::_parseLocation(size_t &i, std::vector<std::string> &token, Se
 				throw std::runtime_error("Only one return directive is accepted");
 
 			control_return(token, i, location);
+		}
+		else if (token[i] == "upload_store")
+		{
+			upload_store_control++;
+			if (upload_store_control > 1)
+				throw std::runtime_error("Only one upload_store directive is accepted");
+
+			i++;
+			if (ConfigParser::_rootFormatControl(token[i]))		//comment: j'utilise la même fonction que root vu que c'est la même chose à valider
+				throw std::runtime_error("Invalid upload_sotre path");
+			
+			location.upload_store = token[i];
+			i++;
+		}
+		else if (token[i] == "cgi")
+		{
+			i++; //comment: avanzar a la extensión
+			
+			if (token[i].empty() || (token[i][0] != '.'))		//comment: l'extension commence par ".", avec quelque chose
+				throw std::runtime_error("CGI extension must start with '.'");
+			else if (token[i].size() < 2)
+				throw std::runtime_error("CGI extension must need the \"type\" of external lenguage");
+
+			std::string ext = token[i];
+			i++;
+			
+			if (ConfigParser::_rootFormatControl(token[i])) 	//comment: path absolut ou relative, le même que pour root.
+				throw std::runtime_error("CGI, invalid executable path");
+			for (size_t j = 0; j < token[i].size(); j++)
+			{
+				if (!isValidUrlChar(token[i][j], true))
+					throw std::runtime_error("CGI, invalid caracter for url direction");
+			}
+			
+			std::string exec_path = token[i];
+			
+			i++;												//comment: sauter ";"
+			if (i >= token.size() || token[i] != ";")
+				throw std::runtime_error("CGI, missing \";\"");
+
+			if (location.cgis.count(ext))						//comment: verifier qu'il n'y a pas une autre extention avec le même cgi
+				throw std::runtime_error("CGI, duplicate extension");
+			
+			location.cgis[ext] = exec_path;
+			i++;
 		}
 		else
 			i++;
