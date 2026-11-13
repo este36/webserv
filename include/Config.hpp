@@ -4,13 +4,9 @@
 #include <vector>
 #include "ServerConfig.hpp"
 
-class Config
+struct Config
 {
-	public:
-		Config	();
-		~Config	();
-
-		std::vector<ServerConfig> servers;
+	std::vector<ServerConfig> servers;
 };
 
 #endif //CONFIG_HPP

@@ -29,7 +29,6 @@ SRCS =\
 	$(LIB_HTTP_SRCS) \
 	$(LIB_NET_SRCS) \
 	src/main.cpp \
-	src/Config.cpp \
 	src/LocationConfig.cpp \
 	src/ServerConfig.cpp \
 	src/ConfigParser.cpp \
@@ -41,6 +40,7 @@ SRCS =\
 
 TESTS_SRCS =\
 	tests/test_lib.cpp\
+	tests/test_parsing_conf.cpp \
 	tests/test_url.cpp\
 
 NET_EXAMPLE_SRCS =\

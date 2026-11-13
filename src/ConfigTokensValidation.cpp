@@ -8,7 +8,7 @@ bool ConfigParser::_isValidPort(const std::string &port_str)
 	
 	for (size_t i = 0; i < port_str.size(); i++)
 	{
-		if (!std::isdigit(port_str[i]))
+		if (!std::isdigit(static_cast<unsigned char>(port_str[i])))
 			return false;
 	}
 	

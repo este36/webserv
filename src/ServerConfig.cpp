@@ -1,9 +1,8 @@
 #include "ServerConfig.hpp"
 
-//comment: only server configuration
 ServerConfig::ServerConfig() :
 	port(0),
-	client_name_body_max(1048576)
+	client_max_body_size(1048576)		//comment: c'est 1Mb par defaut
 {}
 
 ServerConfig::~ServerConfig()

@@ -6,17 +6,16 @@
 #include <vector>
 #include <map>
 
-class ServerConfig
+struct ServerConfig
 {
-	public:
-		ServerConfig	();
-		~ServerConfig	();
+	ServerConfig	();
+	~ServerConfig	();
 
-		int 							port;
-		size_t							client_name_body_max;
-		std::string 					server_name;
-		std::vector<LocationConfig>		location;
-		
+	int 							port;
+	size_t							client_max_body_size;
+	std::string 					server_name;
+	std::vector<LocationConfig>		location;
+	std::map<int, std::string>		error_pages;			//comment: "error pages" contemplé pour tout le serveur
 };
 
 #endif //SERVERCONFIG_HPP
