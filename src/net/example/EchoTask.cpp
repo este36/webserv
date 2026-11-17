@@ -23,7 +23,8 @@ net::PollTask::Result	EchoTask::resume(short revents)
 		if (ret < 0) // error case
 			return net::PollTask::Result(FINISHED, NULL);
 
-		_request_data.append(_client->received_data(), _client->received_length());
+		if (_client->received_length() != 0)
+			_request_data.append(_client->received_data(), _client->received_length());
 
 		if (ret > 0)
 			return net::PollTask::Result(WAIT, NULL);
@@ -32,7 +33,6 @@ net::PollTask::Result	EchoTask::resume(short revents)
 			if (!_request_data.empty() && *_request_data.rbegin() == '\n')
 				_request_data.erase(_request_data.size()-1, 1); // remove newline character
 			std::cout << "reveived data : \"" <<  _request_data << "\"" << std::endl;
-			_request_data = std::string("<h1>") + _request_data + "</h1>\r\n";
 			_events = POLLOUT;
 		}
 	}
