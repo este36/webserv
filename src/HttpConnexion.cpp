@@ -5,7 +5,8 @@ HttpConnexion::HttpConnexion(
 			net::TCPClient *client, 
 			const ServerConfig& server_config) :
 	_server_config(server_config),
-	_client(client)
+	_client(client),
+	_state(PERFORM_READ)
 {}
 
 HttpConnexion::~HttpConnexion()
