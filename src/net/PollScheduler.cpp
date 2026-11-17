@@ -36,7 +36,7 @@ PollScheduler::TaskEntry::TaskEntry(PollTask *t) : task(t), parent(NULL), pendin
 
 void PollScheduler::signal_handler(int)
 {
-	PollScheduler::running = 1;
+	PollScheduler::running = 0;
 }
 
 void PollScheduler::setup_signal_handlers()
@@ -45,7 +45,7 @@ void PollScheduler::setup_signal_handlers()
 	signal(SIGTERM, PollScheduler::signal_handler);
 }
 
-PollScheduler::TaskEntry *PollScheduler::task_add(PollTask *task)
+PollScheduler::TaskEntry *PollScheduler::create_entry(PollTask *task)
 {
 	if (task == NULL || task->fd() == -1)
 		return NULL;
@@ -75,12 +75,6 @@ void PollScheduler::delete_entry(TaskEntry *entry)
 {
 	if (entry == NULL)
 		return;
-	_tasks_by_fd.erase(entry->task->fd());
-	// find and delete _tasks entry
-	{
-		std::list<TaskEntry>::iterator element = std::find(_tasks.begin(), _tasks.end(), *entry);
-		_tasks.erase(element);
-	}
 	// find and delete _root_tasks entry
 	if (entry->parent == NULL)
 	{
@@ -95,24 +89,32 @@ void PollScheduler::delete_entry(TaskEntry *entry)
 				_pollfds.erase(_pollfds.begin() + i);
 		}
 	}
+	_tasks_by_fd.erase(entry->task->fd());
+	// find and delete _tasks entry
+	{
+		std::list<TaskEntry>::iterator element = std::find(_tasks.begin(), _tasks.end(), *entry);
+		_tasks.erase(element);
+	}
 	// delete the last reference to the task
 	delete entry->task;
 }
 
 void PollScheduler::add(PollTask *task)
 {
-	TaskEntry *entry = task_add(task);
-
-	if (entry == NULL)
-		return;
+	TaskEntry *entry = create_entry(task);
 
 	_root_tasks.push_back(entry);
 }
 
 void PollScheduler::task_stop(TaskEntry *entry)
 {
+	if (std::find(_dead_tasks.begin(), _dead_tasks.end(), entry) != _dead_tasks.end())
+		return;
+
 	std::vector<TaskEntry *> stack;
+
 	stack.push_back(entry);
+
 	while (!stack.empty())
 	{
 		TaskEntry *head = stack.back();
@@ -128,10 +130,10 @@ void PollScheduler::task_stop(TaskEntry *entry)
 
 void PollScheduler::run()
 {
-	running = 1;
-
 	if (_pollfds.size() == 0)
 		return;
+
+	running = 1;
 
 	while (running)
 	{
@@ -190,14 +192,14 @@ void PollScheduler::run()
 				ft::remove_unordered(entry->parent->children, parent_index);
 				entry->parent->task->on_child_finished(entry->task);
 			}
-			delete_entry(_dead_tasks[i]);
+			delete_entry(entry);
 		}
 
 		// step 3 : register all new tasks that were created
 		for (std::size_t i = 0; i < _new_tasks.size(); ++i)
 		{
 			std::pair< PollTask*, TaskEntry* > *it = &_new_tasks[i];
-			TaskEntry *child = task_add(it->first);
+			TaskEntry *child = create_entry(it->first);
 			child->parent = it->second;
 			child->parent->children.push_back(child);
 		}
