@@ -7,6 +7,8 @@
 #include "RequestHandler.hpp"
 #include "ServerConfig.hpp"
 #include "RequestParser.hpp"
+#include "ft/string_view.hpp"
+
 
 class HttpConnexion : public net::PollTask
 {
@@ -46,7 +48,9 @@ public:
 	int fd() const;
 	short events() const;
 
-	void on_child_finished(net::PollTask*);
+	void 					on_child_finished(net::PollTask*);
+	static ft::string_view 	get_request_extention(const http::Request &req);
+
 };
 
 #endif // HTTP_CONNEXION_HPP

@@ -8,16 +8,59 @@ HttpConnexion::HttpConnexion(
 	_client(client)
 {}
 
+
 HttpConnexion::~HttpConnexion()
 {
 	delete _client;
 }
 
-RequestHandler	HttpConnexion::dispatch_request(const http::Request& request)
+
+/*	
+Exemple d'extentixon:
+	GET /index.html HTTP/1.1
+	GET /images/logo.png HTTP/1.1
+*/
+ft::string_view		HttpConnexion::get_request_extention(const http::Request &req)
 {
-	(void)request;
-	throw std::runtime_error("TODO");
+    const std::string &path = req.head.uri.path;
+
+	if (path.empty() || path.back() == '/')
+		return "";
+	
+	size_t dot = 	path.rfind('.');
+
+	if (dot == std::string::npos)
+		return "";													//si il n'existe pas de "."
+
+	ft::string_view extension = path.substr(dot);
+
+	if (extension.find('/') != std::string::npos)					//si l'extention a un "/"
+		return "";
+		
+	size_t i = 1;
+	while (i < extension.size())
+	{
+		if (!std::isalnum(static_cast<unsigned char>(extension[i++])))
+			return "";
+	}
+
+	return extension;
 }
+
+RequestHandler	HttpConnexion::dispatch_request(const http::Request &request)
+{	
+	ft::string_view Extention = HttpConnexion::get_request_extention(request);
+
+	if (Extention.empty())
+		return NULL;											//CHOSIR QUOI FAIRE (quand il n'existe pas d'extention)
+	
+	if (Extention == ".py" || Extention == ".php")
+			return handle_cgi;
+
+	
+	throw std::runtime_error("TODO");						//CHOISIR QUOI FAIRE !!
+}
+
 
 void HttpConnexion::prepare_response()
 {
@@ -32,6 +75,7 @@ void HttpConnexion::prepare_response()
 
 	_head_buffer += ft::to_string(_response.head());
 }
+
 
 net::PollTask::Result	HttpConnexion::resume(short revents)
 {
@@ -127,3 +171,4 @@ short HttpConnexion::events() const
 		default: throw std::runtime_error("unreachable");
 	}
 }
+

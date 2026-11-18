@@ -16,7 +16,7 @@ int main()
 			std::cout << "i =" << i << std::endl;
 			std::cout << "Server			: " << config.servers[i].server_name << std::endl;
 			std::cout << "Port			: " << config.servers[i].port << std::endl;
-			std::cout << "Location		: " << config.servers[i].location[0].root << std::endl;
+			std::cout << "Location		: " << config.servers[i].location[0].path << std::endl;
 			std::cout << "Auto index status	: " << config.servers[i].location[0].auto_index << std::endl;
 			i++;
 		}

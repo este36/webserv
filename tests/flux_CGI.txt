@@ -1,0 +1,195 @@
+================================================================================
+FLUX COMPLET COMPLET : DU CLIENT HTTP JUSQU'AU CGI (ET RETOUR)
+================================================================================
+
+1) DÉMARRAGE DU PROGRAMME
+--------------------------------------------------------------------------------
+main.cpp
+  └── ConfigParser::parse("config.conf")     → ConfigParser.cpp
+        └── lit le .conf, tokenise, valide
+        └── retourne struct Config { vector<ServerConfig> }   → Config.hpp
+  └── Server server(config)                  → Server.cpp
+  └── server.run()
+        └── pour chaque server : new TCPListener(...) → ajoute au PollScheduler
+        └── _scheduler.run()                 → PollScheduler.cpp  ← début de la boucle
+
+
+2) LA BOUCLE CENTRALE (PollScheduler::run)
+--------------------------------------------------------------------------------
+PollScheduler::run()                          → PollScheduler.cpp
+  while (running):
+    poll(_pollfds, ...)   ← le noyau attend des événements
+    pour chaque fd prêt :
+      entry->task->resume(revents)            ← appelle le PollTask propriétaire du fd
+
+
+3) ARRIVÉE D'UNE NOUVELLE CONNEXION
+--------------------------------------------------------------------------------
+TCPListener::resume(POLLIN)										→ TCPListener.cpp
+  └── accept()													→ crée un socket pour le client
+  └── new TCPClient(fd)											→ TCPClient.cpp
+  └── _factory.create(client)									→ HttpConnexionFactory.cpp
+        └── return new HttpConnexion(client, server_config)		→ HttpConnexion.cpp
+  └── return Result(WAIT, child=HttpConnexion)				← le scheduler l'enregistre comme enfant
+
+Désormais, c'est HttpConnexion qui s'occupe du client.
+
+
+4) ARRIVÉE DES OCTETS DU CLIENT (LA REQUÊTE HTTP)
+--------------------------------------------------------------------------------
+HttpConnexion::resume(POLLIN)                 → HttpConnexion.cpp
+  └── _client->receive()                      → TCPClient.cpp  (recv sur socket)
+  └── _request_parser.feed(buffer, len)       → RequestParser.cpp  ← FAIT PAR TON COLLÈGUE
+        └── construit peu à peu http::Request { head, body }   → Request.hpp
+  └── if (_request_parser.done()) {
+        _state = PERFORM_WRITE_HEAD
+        const http::Request& request = _request_parser.request();
+        RequestHandler handler = dispatch_request(request);}   ← C'EST ICI QUE ÇA ROUTE
+
+
+5) ROUTAGE : QUEL HANDLER EST CONCERNÉ ?
+--------------------------------------------------------------------------------
+HttpConnexion::dispatch_request(request)      → HttpConnexion.cpp  ← FAIT PAR TON COLLÈGUE
+  └── regarde l'URL, la méthode, le server_config, la location qui matche
+  └── regarde si l'extension du fichier demandé est dans location.cgis
+        SI c'est un CGI  → return handle_cgi    ← FAIT PAR TOI !
+        SI c'est un GET  → return handle_get    ← ton collègue
+        SI POST          → return handle_upload ← ton collègue
+        SI DELETE        → return handle_delete ← ton collègue
+
+ATTENTION : dispatch_request est la CHARNIÈRE entre le monde HTTP (ton collègue)
+et le monde des handlers (toi + lui). C'est la fonction à coordonner entre vous deux.
+
+
+6) EXÉCUTION DU HANDLER
+--------------------------------------------------------------------------------
+net::PollTask *child = handler(server_config, request, response);
+                                                          ↑
+                              http::Response& vide que le handler doit remplir
+
+Pour un GET normal, handle_get remplit `response` et retourne NULL.
+Pour un CGI, handle_cgi ne peut PAS remplir la réponse immédiatement (le script
+prend du temps). Il retourne donc un PollTask* (le CGITask) qui s'en chargera
+plus tard. Ce pointeur revient à HttpConnexion :
+
+  if (child != NULL) {
+      _state = WAIT_FOR_CHILD_RESPONSE;
+      return Result(WAIT, child);             ← transmis au PollScheduler
+  }
+
+
+7) LE CGI EN ACTION (CE QUE TU DOIS FAIRE)
+--------------------------------------------------------------------------------
+Il faut créer DEUX nouvelles classes (ou une seule avec deux modes) et une
+fonction d'entrée :
+
+  7a) handle_cgi (fonction dans un nouveau fichier, ex. CGIHandler.cpp)
+
+handle_cgi(server_config, request, response)  → CGIHandler.cpp  ← NOUVEAU
+  └── cherche la location qui matche request.head.uri.path
+  └── cherche dans location.cgis l'extension du path demandé (.py, .php, ...)
+        └── trouve l'exécutable (ex: /usr/bin/python3)
+  └── pipe(in_pipe)     ← le serveur écrit → le script lit
+  └── pipe(out_pipe)    ← le script écrit → le serveur lit
+  └── fork()
+        ── FILS ──
+        └── dup2(in_pipe[0], STDIN_FILENO)
+        └── dup2(out_pipe[1], STDOUT_FILENO)
+        └── fermer les fds inutiles
+        └── chdir(répertoire du script)
+        └── construire envp[] : REQUEST_METHOD, QUERY_STRING,
+            CONTENT_LENGTH, SCRIPT_FILENAME, etc.
+        └── execve(exec_path, argv, envp)   ← remplace le processus par Python
+        └── si execve échoue : _exit(1)
+        ── PÈRE ──
+        └── fermer les extrémités inutilisées
+        └── return new CGITask(pid, in_pipe[1], out_pipe[0], request.body)
+
+
+  7b) CGITask (nouvelle classe, CGITask.hpp/.cpp) — hérite de net::PollTask
+
+C'est lui qui fait que tout fonctionne sans bloquer. Il a deux fds, donc on
+pense naturellement à DEUX sous-tasks, ou à un seul qui s'en sort. Voici un
+design recommandé avec DEUX enfants :
+
+CGITask                                   → CGITask.cpp  ← NOUVEAU
+  ├── écrit le body de la requête dans le pipe d'entrée (fd POLLOUT)
+  └── quand il a fini d'écrire, ferme ce fd
+  └── lit depuis le pipe de sortie (fd POLLIN) et remplit un buffer
+  └── quand le pipe de sortie renvoie 0 (EOF), le script a terminé
+  └── fait waitpid(pid) non bloquant
+  └── passe le buffer à un CGIStreamBody et l'insère dans response.set_body(...)
+  └── return Result(FINISHED)
+
+Si le resume() de CGITask retourne FINISHED, le PollScheduler le tue et appelle
+le parent :
+
+PollScheduler::run()
+  └── lors de la libération d'un enfant :
+        entry->parent->task->on_child_finished(entry->task)
+              ↓
+        HttpConnexion::on_child_finished(...)  → HttpConnexion.cpp
+              └── _state = PERFORM_WRITE_HEAD
+              └── prepare_response()   ← maintenant _response.body() a des données
+
+
+8) RENVOYER LA RÉPONSE AU CLIENT
+--------------------------------------------------------------------------------
+HttpConnexion::prepare_response()             → HttpConnexion.cpp
+  └── ajoute "Content-Length" s'il y a un body
+  └── sérialise la head dans _head_buffer
+
+HttpConnexion::resume(POLLOUT)                → HttpConnexion.cpp
+  └── _client->send(_head_buffer...)          → TCPClient.cpp
+  └── quand la head est finie → PERFORM_WRITE_BODY
+  └── _response.body()->read_chunk(...)       → CGIStreamBody.cpp ← NOUVEAU (ta classe)
+  └── _client->send(chunk...)
+  └── quand tout est envoyé → PERFORM_READ, _request_parser.reset()
+
+Fin du cycle. Le client reçoit les octets de la réponse HTTP.
+
+
+================================================================================
+RÉSUMÉ EN UN TABLEAU
+================================================================================
+
+| Étape                        | Fichier                              | Qui ?         |
+|------------------------------|--------------------------------------|---------------|
+| Boucle centrale + poll       | PollScheduler.cpp                    | (existe déjà) |
+| Accepter une connexion       | TCPListener.cpp + Factory.cpp        | (existe déjà) |
+| Socket client                | TCPClient.cpp                        | (existe déjà) |
+| Parser la requête            | RequestParser.cpp                    | collègue      |
+| Routage                      | HttpConnexion::dispatch_request      | collègue      |
+| Décider "c'est un CGI"       | dispatch_request (branche)           | collègue      |
+| Gérer GET/POST/DELETE        | handle_get etc.                      | collègue      |
+| Point d'entrée CGI           | handle_cgi                           | TOI ← CGIHandler.cpp |
+| Processus CGI non bloquant   | CGITask : net::PollTask              | TOI ← CGITask.cpp    |
+| Lire le pipe comme body      | CGIStreamBody : AStreamableBody      | TOI ← CGIStreamBody.cpp |
+| Envoyer la réponse           | HttpConnexion::resume(POLLOUT)       | (existe déjà) |
+
+
+================================================================================
+LES TROIS QUESTIONS À RÉSOUDRE AVANT D'ÉCRIRE DU CODE
+================================================================================
+
+1. dispatch_request : comment va-t-il détecter que le path est un CGI ?
+   Le naturel est : location.cgis.count(extension_du_path). Mais c'est ton
+   collègue qui doit l'écrire. PARLE-LUI, car c'est l'entrée de ta partie.
+
+2. Corps de la réponse : le CGI renvoie des headers (Content-Type: ...\r\n)
+   + \r\n + body. Veux-tu parser ces headers et les recopier dans
+   http::Response, ou les passer bruts ? Pour le sujet, il est plus propre
+   de les parser (au moins Content-Type et Status).
+
+3. Chunked ou Content-Length ? Si ton CGIStreamBody ne connaît pas la taille
+   totale à l'avance (car le script écrit au fur et à mesure), tu ne peux pas
+   mettre Content-Length. Tes options :
+   - Buffer complet : lire toute la sortie du CGI en mémoire, puis connaître
+     la taille. Simple, mais consomme de la RAM.
+   - Chunked encoding : envoyer sans connaître la taille. Correct mais plus
+     complexe dans HttpConnexion (il faudrait toucher à la partie de ton
+     collègue).
+   - Tout lire et calculer : c'est le plus courant dans les projets 42 et ce
+     que suggère le sujet ("no hang indefinitely"). Recommandé.
+
+================================================================================

@@ -248,6 +248,7 @@ void ConfigParser::_parseServer(size_t &i, std::vector<std::string> &token, Conf
 
 //On controle le format du root.
 //Il doit commencer forcement soit / (absolut path) soit ./ (relative path) ../ et avoir quelque chose après.
+//Si tout va bien, return FALSE
 bool ConfigParser::_rootFormatControl(const std::string &root)
 {
 	if (root.empty())
@@ -421,7 +422,11 @@ void ConfigParser::_parseLocation(size_t &i, std::vector<std::string> &token, Se
 	size_t				return_control 				= 0;
 	size_t				upload_store_control 		= 0;
 
-	i += 2;														//comment: saluter "\" et "{"
+	location.path = token[i+1];
+	if (location.path.empty() || location.path[0] != '/')
+		throw std::runtime_error("Location path must start with '/'");
+
+	i += 2;														//comment: sauter "\" et "{"
 
 	while(i < token.size() && token[i] != "}")
 	{

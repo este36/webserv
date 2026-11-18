@@ -1,0 +1,6 @@
+#ifndef CGIHANDLER_HPP
+#define CGIHANDLER_HPP
+
+
+
+#endif //CGIHANDLER_HPP
