@@ -27,6 +27,7 @@ run_test() {
 	fi
 	
 	./${exe_name} > /tmp/test_output.txt 2>&1
+	./${exe_name} > "tests/bin/$(basename $exe_name).log" 2>&1
 	
 	if [ $? -eq 0 ]; then
 		echo -e "${GREEN}✓ PASS${NC}"

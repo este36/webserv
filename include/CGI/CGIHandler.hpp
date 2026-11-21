@@ -8,7 +8,7 @@
 #include "http/Response.hpp"
 #include <string>
 #include <sys/types.h>
-#include <map>
+
 
 class CGIHandler : public net::PollTask
 {
@@ -17,6 +17,14 @@ class CGIHandler : public net::PollTask
 		const 	http::Request 	&_request;
 				http::Response 	&_response;
 
+		net::Fd 				_pipe_in;
+		net::Fd 				_pipe_out;
+		pid_t 					_child_pid;
+		std::string 			_output_buffer;
+		bool 					_child_finished;
+
+	void _execute_cgi(const std::string &script_path, const std::string &interpreter);	
+		
 
 	public:
 		CGIHandler (const 	ServerConfig 	&server_config,
