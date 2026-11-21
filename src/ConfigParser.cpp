@@ -532,7 +532,7 @@ void ConfigParser::_parseLocation(size_t &i, std::vector<std::string> &token, Se
 			
 			std::string exec_path = token[i];
 			
-			i++;												//comment: sauter ";"
+			i++;												//comment: avancer vers ";"
 			if (i >= token.size() || token[i] != ";")
 				throw std::runtime_error("CGI, missing \";\"");
 
@@ -540,7 +540,7 @@ void ConfigParser::_parseLocation(size_t &i, std::vector<std::string> &token, Se
 				throw std::runtime_error("CGI, duplicate extension");
 			
 			location.cgis[ext] = exec_path;
-			i++;
+			i++;												//sauter ";"
 		}
 		else
 			i++;

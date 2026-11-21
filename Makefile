@@ -37,7 +37,8 @@ SRCS =\
 	src/HttpConnexion.cpp \
 	src/HttpConnexionFactory.cpp \
 	src/RequestParser.cpp \
-
+    src/CGI/CGIHandler.cpp \
+	
 TESTS_SRCS =\
 	tests/test_lib.cpp\
 	tests/test_parsing_conf.cpp \

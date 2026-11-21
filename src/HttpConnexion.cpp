@@ -24,7 +24,7 @@ ft::string_view		HttpConnexion::get_request_extention(const http::Request &req)
 {
     const std::string &path = req.head.uri.path;
 
-	if (path.empty() || path.back() == '/')
+	if (path.empty() || path[path.size() - 1] == '/')
 		return "";
 	
 	size_t dot = 	path.rfind('.');
