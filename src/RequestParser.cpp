@@ -3,9 +3,9 @@
 #include "ft/utils.hpp"
 #include <stdexcept>
 #include <utility>
-#include <vector>
 
-RequestParser::RequestParser() :
+RequestParser::RequestParser(const std::size_t max_body_size) :
+  _max_body_size(max_body_size),
   _cursor(0),
   _remaining(0),
   _state(REQUEST_LINE)
@@ -60,46 +60,12 @@ void RequestParser::parse_request_line(const std::string& line)
     _pending_request.head.uri = parsed_target.first;
 }
 
-//comment: Parse les transfer_encodings pour en faire des listes si besoin.
-static void append_transfer_codings(
-    const std::string& field_value,
-    std::vector<std::string>& codings)
-{
-    std::size_t start = 0;
-
-    while (start <= field_value.size())
-    {
-        const std::size_t comma = field_value.find(',', start);
-        std::size_t end =
-            (comma == std::string::npos) ? field_value.size() : comma; //comment: Sert à trouver les header values successives et valides pour les réunir comme "Transfer_Encoding [gzip, chunked]"
-
-        while (start < end
-            && (field_value[start] == ' ' || field_value[start] == '\t'))
-            ++start;
-
-        while (end > start
-            && (field_value[end - 1] == ' ' || field_value[end - 1] == '\t'))
-            --end;
-
-        const std::string coding = field_value.substr(start, end - start);
-        if (!request_parser_helper::is_valid_header_name(coding))
-            throw std::runtime_error("invalid Transfer-Encoding");
-
-        codings.push_back(ft::to_lower(coding));
-
-        if (comma == std::string::npos)
-            break;
-
-        start = comma + 1;
-    }
-}
 //comment: Vérifie les règles pour les headers Content_Length et Transfer_Encoding, ensuite state passe à CHUNK_SIZE
 void RequestParser::finish_headers()
 {
     bool has_content_length = false;
     bool has_transfer_encoding = false;
     std::size_t content_length = 0;
-    std::vector<std::string> codings;
     std::size_t host_count = 0;
     std::string host_value;
 
@@ -129,8 +95,12 @@ void RequestParser::finish_headers()
         }
         else if (name == "transfer-encoding")
         {
+            if (has_transfer_encoding)
+                throw std::runtime_error("duplicate Transfer-Encoding");
+
             has_transfer_encoding = true;
-            append_transfer_codings(it->second, codings);
+            if (ft::to_lower(it->second) != "chunked")
+                throw std::runtime_error("unsupported Transfer-Encoding");
         }
     }
 
@@ -150,27 +120,6 @@ void RequestParser::finish_headers()
         if (_pending_request.head.version_minor == 0)
             throw std::runtime_error("Transfer-Encoding requires HTTP/1.1");
 
-        if (codings.empty() || codings.back() != "chunked")
-            throw std::runtime_error("request Transfer-Encoding must end with chunked");
-
-        bool has_chunked = false;
-
-        for (std::size_t i = 0; i < codings.size(); ++i)
-        {
-            if (codings[i] == "chunked")
-            {
-                if (has_chunked)
-                    throw std::runtime_error("chunked coding repeated");
-                has_chunked = true;
-            }
-            else if (codings[i] == "gzip" || codings[i] == "x-gzip")
-            {
-                throw std::runtime_error("TODO: gzip decoding");
-            }
-            else
-                throw std::runtime_error("unsupported transfer coding");
-        }
-
         _remaining = 0;
         _state = CHUNK_SIZE;
         return;
@@ -178,6 +127,8 @@ void RequestParser::finish_headers()
 
     if (has_content_length)
     {
+        if (content_length > _max_body_size)
+            throw std::runtime_error("request body too large");
         _remaining = content_length;
         _state = (_remaining == 0) ? COMPLETE : FIXED_BODY;
         return;
@@ -260,7 +211,13 @@ void	RequestParser::feed(const char *src, const size_t len)
     {
       if (!read_line(line))
           break;
-      _remaining = request_parser_helper::parse_chunk_size(line);
+      const std::size_t chunk_size =
+          request_parser_helper::parse_chunk_size(line);
+      const std::size_t current_size = _pending_request.body.size();
+      if (current_size > _max_body_size
+          || chunk_size > _max_body_size - current_size)
+          throw std::runtime_error("request body too large");
+      _remaining = chunk_size;
       if (_remaining == 0)
           _state = TRAILERS;
       else

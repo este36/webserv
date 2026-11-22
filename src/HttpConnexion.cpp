@@ -6,6 +6,7 @@ HttpConnexion::HttpConnexion(
 			const ServerConfig& server_config) :
 	_server_config(server_config),
 	_client(client),
+	_request_parser(server_config.client_max_body_size),
 	_state(PERFORM_READ)
 {}
 

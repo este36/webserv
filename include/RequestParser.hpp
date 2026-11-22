@@ -10,6 +10,7 @@ class RequestParser
 {
 	http::Request	_pending_request;
 	std::string		_input_buffer;
+	std::size_t		_max_body_size;
 	std::size_t		_cursor;
 	std::size_t		_remaining;
 
@@ -26,15 +27,15 @@ class RequestParser
 	};
 	State _state;
 
-	bool		read_line(std::string& line);
-	void		parse_request_line(const std::string& line);
-	void		parse_header_line(const std::string& line, http::Headers& destination) const;
-  void    finish_headers();
+	bool			read_line(std::string& line);
+	void			parse_request_line(const std::string& line);
+	void			parse_header_line(const std::string& line, http::Headers& destination) const;
+  void      finish_headers();
 public:
-  RequestParser();
-	void		feed(const char *src, const size_t len);
-	bool		done();
-	void		reset();
+  explicit  RequestParser(std::size_t max_body_size);
+	void			feed(const char *src, const size_t len);
+	bool			done();
+	void			reset();
 
 	const http::Request&	request();
 
