@@ -36,6 +36,7 @@ SRCS =\
 	src/Server.cpp \
 	src/HttpConnexion.cpp \
 	src/HttpConnexionFactory.cpp \
+	src/RequestParserHelper.cpp \
 	src/RequestParser.cpp \
 
 TESTS_SRCS =\

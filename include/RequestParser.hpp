@@ -2,6 +2,7 @@
 #define REQUEST_PARSER
 
 #include "http/Request.hpp"
+#include <iostream>
 #include <cstddef>
 #include <string>
 
@@ -25,15 +26,15 @@ class RequestParser
 	};
 	State _state;
 
-	bool					read_line(std::string& line);
-	void					parse_request_line(const std::string& line);
-	void					parse_header_line(const std::string& line);
-  void          finish_headers();
+	bool		read_line(std::string& line);
+	void		parse_request_line(const std::string& line);
+	void		parse_header_line(const std::string& line, http::Headers& destination) const;
+  void    finish_headers();
 public:
   RequestParser();
-	void					feed(const char *src, const size_t len);
-	bool					done();
-	void					reset();
+	void		feed(const char *src, const size_t len);
+	bool		done();
+	void		reset();
 
 	const http::Request&	request();
 
