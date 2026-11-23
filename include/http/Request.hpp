@@ -30,6 +30,7 @@ struct Request
 {
 	RequestHead	head;
 	std::string	body;
+	Headers 		trailers;
 };
 
 std::ostream& operator<<(std::ostream& out, const Request& request);
