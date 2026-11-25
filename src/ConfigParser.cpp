@@ -145,7 +145,7 @@ static bool isValidErrorCode(const std::string &code)
 //controler au minimum 2 argument, qui ne se repetent pas.
 //ça doit commencer par "/" et avoir quelque chose après
 //le code d'error doit etre entre 300 et 599
-static void control_error_page(const std::vector<std::string> &tokens, size_t &i, std::map<int, std::string> &error_pages)
+static void ControlErrorPage(const std::vector<std::string> &tokens, size_t &i, std::map<int, std::string> &error_pages)
 {
 	std::vector<std::string>		args;
 	std::map<int, std::string>		pending;
@@ -216,7 +216,7 @@ void ConfigParser::_parseServer(size_t &i, std::vector<std::string> &token, Conf
 		else if (token[i] == "location")
 			_parseLocation(i, token, server);
 		else if (token[i] == "error_page")
-			control_error_page(token, i, server.error_pages);	//comment: control de "error_pages", pour tout le serveur
+			ControlErrorPage(token, i, server.error_pages);	//comment: control de "error_pages", pour tout le serveur
 		else if (token[i] == "client_max_body_size")
 		{
 			client_max_body_size_control++;
@@ -488,7 +488,7 @@ void ConfigParser::_parseLocation(size_t &i, std::vector<std::string> &token, Se
 			i++;
 		}
 		else if (token[i] == "error_page")
-			control_error_page(token, i, location.error_pages);
+			ControlErrorPage(token, i, location.error_pages);
 		else if (token[i] == "return")
 		{
 			return_control++;

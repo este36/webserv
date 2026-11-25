@@ -6,8 +6,14 @@
 #include "ServerConfig.hpp"
 #include "http/Request.hpp"
 #include "http/Response.hpp"
-#include <string>
-#include <sys/types.h>
+#include "http/PlainBody.hpp" 		//pour lire le body de la requête et l'envoyer au pipe d'entrée du CGI
+#include <string>					//pour stocker la sortie du CGI dans un buffer avant de l'envoyer au client
+#include <sys/types.h>				//pid_t
+#include <unistd.h>  				//fork, pipe, dup2, execve
+#include <sys/wait.h>				 //waitpid
+#include <fcntl.h>   				//fcntl (set_non_blocking)
+#include <cstdlib>   				//exit
+#include <cerrno>					//errno
 
 
 class CGIHandler : public net::PollTask

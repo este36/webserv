@@ -82,21 +82,31 @@ CGIHandler::CGIHandler(const ServerConfig& server_config,
 	_execute_cgi(script_path, it->second);
 }
 
+
 net::PollTask::Result CGIHandler::resume(short revents)
 {
     (void)revents;
     return Result(net::PollTask::WAIT);
 }
 
+
 int CGIHandler::fd() const
 {
-    return -1;
+	if (_child_finished)
+    	return -1;
+
+	return _pipe_out.get();
 }
+
 
 short CGIHandler::events() const
 {
-    return 0;
+	if (_child_finished)
+    	return 0;
+
+	return POLLIN;
 }
+
 
 net::PollTask *handle_cgi(const ServerConfig& server_config,
                           const http::Request& request,
@@ -105,8 +115,72 @@ net::PollTask *handle_cgi(const ServerConfig& server_config,
     return new CGIHandler(server_config, request, response);
 }
 
+
 void CGIHandler::_execute_cgi(const std::string &script_path, const std::string &interpreter)
 {
-	(void)script_path;
-	(void)interpreter;
+	int		pipe_in[2];
+	int 	pipe_out[2];
+
+	if (pipe(pipe_in) < 0 || pipe(pipe_out) <0)
+	{
+		_response.head().status_code 	= 500;
+		_child_finished 				= true;
+		return;
+	}
+
+	_child_pid = fork();											//Ici le fils
+
+	if (_child_pid < 0)
+	{
+		close(pipe_in[0]);
+		close(pipe_in[1]);
+
+		close(pipe_out[0]);
+		close(pipe_out[1]);
+
+		_response.head().status_code 	= 500;
+		_child_finished 				= true;
+		return;
+	}
+
+	if (_child_pid == 0)
+	{
+		dup2(pipe_in[0], STDIN_FILENO);
+		dup2(pipe_out[1], STDOUT_FILENO);
+
+		close(pipe_in[0]);
+		close(pipe_in[1]);
+
+		close(pipe_out[0]);
+		close(pipe_out[1]);
+
+		// TODO: Armar variables de entorno (lo haré mañana) ... en una funcion a parte
+        char *envp[] = { NULL };
+
+        char *argv[] = {											//ça c'est le "interpreter", "route (path)"
+            const_cast<char*>(interpreter.c_str()),
+            const_cast<char*>(script_path.c_str()),
+            NULL
+        };
+
+		execve(interpreter.c_str(), argv, envp);					//comment: execution! (exceve), le fils fini ici, sauf erreur
+
+		exit(1);													//comment: le processus a eu un erreur
+	}
+
+	close(pipe_in[0]);  											//comment: fermer les pipes inutiles. extreme de lecture du pipe d'entrée (le père n'en a pas besoin)
+	close(pipe_out[1]);												//comment: Cerramos el extremo de escritura del pipe de entrada (el hijo lo usa)
+
+																	
+	if (_request.head.method == http::METHOD_GET || _request.head.method == http::METHOD_DELETE) //comment: Si es GET, cerramos el pipe_in inmediatamente (el hijo verá EOF en stdin)
+	    close(pipe_in[1]); 											//comment: cerramos el extremo de escritura directamente
+	else
+	    _pipe_in.reset(pipe_in[1]); // Pour POST, on garde le pipe ouvert pour écrire le body de la requête dans le pipe d'entrée du CGI, en resume().
+
+	_pipe_out.reset(pipe_out[0]);
+	_pipe_out.set_non_blocking();
+
+
+	// TODO: Por ahora asumimos que es GET. Si es POST, hay que escribir el body en _pipe_in.
+    // Como es GET, cerramos el pipe_in inmediatamente.
 }
