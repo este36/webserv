@@ -36,12 +36,9 @@ const LocationConfig *_find_location(const ServerConfig &serverConfig, const std
 	return match;
 }
 
-/*	CGIHandler est responsable de l'exécution d'un script CGI en 
-	tant que processus enfant. Il crée des pipes pour communiquer 
-	avec le processus enfant, exécute le script CGI et lit sa sortie 
-	pour construire la réponse HTTP. Le processus parent (le serveur) 
-	lit les données du pipe de sortie du CGI et les stocke dans un 
-	buffer avant de les envoyer au client.
+/* 
+	CGIHandler est un PollTask qui gère l'exécution d'un script CGI.
+	Il crée un processus fils pour exécuter le script, redirige les entrées/sorties via pipes.
 */
 CGIHandler::CGIHandler(const ServerConfig& server_config,
                        const http::Request& request,
