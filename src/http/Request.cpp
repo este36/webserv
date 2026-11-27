@@ -27,4 +27,31 @@ std::ostream& operator<<(std::ostream& out, const Request& request)
 	return out;
 }
 
+std::string Request::get_extention() const
+{
+	const std::string &path = this->head.uri.path;
+
+	if (path.empty() || path[path.size() - 1] == '/')
+		return "";
+
+	size_t dot = path.rfind('.');
+
+	if (dot == std::string::npos)
+		return "";
+
+	std::string extension = path.substr(dot);
+
+	if (extension.find('/') != std::string::npos)
+		return "";
+
+	size_t i = 1;
+	while (i < extension.size())
+	{
+		if (!std::isalnum(static_cast<unsigned char>(extension[i++])))
+			return "";
+	}
+
+	return extension;
+}
+
 }

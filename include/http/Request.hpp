@@ -30,9 +30,11 @@ struct Request
 {
 	RequestHead	head;
 	std::string	body;
+
+	std::string		get_extention() const;
 };
 
-std::ostream& operator<<(std::ostream& out, const Request& request);
+std::ostream& 	operator<<(std::ostream& out, const Request& request);
 
 }
 

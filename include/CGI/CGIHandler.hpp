@@ -35,7 +35,9 @@ class CGIHandler : public net::PollTask
 	public:
 		CGIHandler (const 	ServerConfig 	&server_config,
 					const 	http::Request 	&request,
-							http::Response 	&response);
+							http::Response 	&response,
+					const 	std::string 	&script_path,
+					const 	std::string 	&interpreter);
 
 		Result 		resume 	(short events);
 		int 		fd		()				const;

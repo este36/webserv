@@ -49,8 +49,6 @@ public:
 	short events() const;
 
 	void 					on_child_finished(net::PollTask*);
-	static std::string	 	get_request_extention(const http::Request &req);
-
 };
 
 #endif // HTTP_CONNEXION_HPP

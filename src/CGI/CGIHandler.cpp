@@ -22,7 +22,7 @@ const LocationConfig *_find_location(const ServerConfig &serverConfig, const std
 			continue;
 
 		if (uri_path.length() >= loc_path.length() && 
-			uri_path.substr(0, loc_path.length()) == loc_path) 	// Vérifie si l'URI commence par le chemin de la location
+			uri_path.substr(0, loc_path.length()) == loc_path) 	//comment: Vérifie si l'URI commence par le chemin de la location
 		{
 			if (loc_path.length() > longest_match)				//Si le path est encore plus specifique (plus long...), encore mieux (comme GNIX).
 			{
@@ -40,9 +40,11 @@ const LocationConfig *_find_location(const ServerConfig &serverConfig, const std
 	CGIHandler est un PollTask qui gère l'exécution d'un script CGI.
 	Il crée un processus fils pour exécuter le script, redirige les entrées/sorties via pipes.
 */
-CGIHandler::CGIHandler(const ServerConfig& server_config,
-                       const http::Request& request,
-                       http::Response& response)
+CGIHandler::CGIHandler(	const ServerConfig& server_config,
+                       	const http::Request& request,
+                       	http::Response& response,
+						const std::string &script_path,
+						const std::string &interpreter)
     : _server_config(server_config)
     , _request(request)
     , _response(response)
@@ -51,40 +53,9 @@ CGIHandler::CGIHandler(const ServerConfig& server_config,
 	, _child_pid(-1)
 	, _child_finished(false)
 {
-	const LocationConfig *loc = _find_location(_server_config, _request.head.uri.path);
-
-	if (loc == NULL)
-	{
-		_response.head().status_code = 404;
-		_child_finished = true;
-		return ;
-	}
-
-	std::string path 	= _request.head.uri.path;
-	size_t 		dot_pos = path.find_last_of('.');
-
-	if (dot_pos == std::string::npos)
-	{
-		_response.head().status_code = 404;
-		_child_finished = true;
-		return ;
-	}
-
-	std::string extension = path.substr(dot_pos);
-
-	std::map<std::string, std::string>::const_iterator it = loc->cgis.find(extension);
-
-	if (it == loc->cgis.end())
-	{
-		_response.head().status_code = 404;
-		_child_finished = true;
-		return ;
-	}
-
-	std::string script_path = loc->root + path;							//comment: concatenation, route absolute qui a besoin exceve
-
-	_execute_cgi(script_path, it->second);
+	_execute_cgi(script_path, interpreter);
 }
+
 
 //Resume() est appelé par le Poller pour gérer les événements sur le pipe de sortie du CGI. 
 //Il lit les données du pipe et les stocke dans _output_buffer. Quand le pipe est fermé 
@@ -159,7 +130,22 @@ net::PollTask *handle_cgi(const ServerConfig& server_config,
                           const http::Request& request,
                           http::Response& response)
 {
-    return new CGIHandler(server_config, request, response);
+	std::string extention = request.get_extention();
+	if (extention.empty())
+		return NULL;
+
+	const LocationConfig *location = _find_location(server_config, request.head.uri.path);
+	if (!location || location->cgis.empty())
+		return NULL;
+
+	std::map<std::string, std::string>::const_iterator it = location->cgis.find(extention);
+	if (it == location->cgis.end())
+		return NULL;
+
+	std::string script_path = location->root + request.head.uri.path;
+	std::string interpreter = it->second;
+
+    return new CGIHandler(server_config, request, response, script_path, interpreter);
 }
 
 // Cette fonction vérifie si l'URI de la requête correspond à une location configurée pour le CGI. 
@@ -177,7 +163,7 @@ void CGIHandler::_execute_cgi(const std::string &script_path, const std::string 
 		return;
 	}
 
-	_child_pid = fork();											//Ici le fils
+	_child_pid = fork();											//comment: Ici le fils
 
 	if (_child_pid < 0)
 	{
@@ -205,9 +191,8 @@ void CGIHandler::_execute_cgi(const std::string &script_path, const std::string 
 		close(pipe_out[0]);
 		close(pipe_out[1]);
 
-		// Variables de entorno seguras (persisten en el stack hasta el execve)
 		std::string env_path = "PATH=/usr/local/bin:/usr/bin:/bin";
-		std::string env_method = "REQUEST_METHOD=GET"; // Hardcodeado por ahora
+		std::string env_method = "REQUEST_METHOD=GET"; // Hardcoded 
 		std::string env_gateway = "GATEWAY_INTERFACE=CGI/1.1";
 		std::string env_script = "SCRIPT_FILENAME=" + script_path;
 
@@ -241,8 +226,5 @@ void CGIHandler::_execute_cgi(const std::string &script_path, const std::string 
 
 	_pipe_out.reset(pipe_out[0]);
 	_pipe_out.set_non_blocking();
-
-
-	// TODO: Por ahora asumimos que es GET. Si es POST, hay que escribir el body en _pipe_in.
-    // Como es GET, cerramos el pipe_in inmediatamente.
 }
+

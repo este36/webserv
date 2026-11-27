@@ -16,41 +16,9 @@ HttpConnexion::~HttpConnexion()
 }
 
 
-/*	
-Exemple d'extentixon:
-	GET /index.html HTTP/1.1
-	GET /images/logo.png HTTP/1.1
-*/
-std::string	HttpConnexion::get_request_extention(const http::Request &req)
-{
-    const std::string &path = req.head.uri.path;
-
-	if (path.empty() || path[path.size() - 1] == '/')
-		return "";
-	
-	size_t dot = 	path.rfind('.');
-
-	if (dot == std::string::npos)
-		return "";													//si il n'existe pas de "."
-
-	std::string extension = path.substr(dot);
-
-	if (extension.find('/') != std::string::npos)					//si l'extention a un "/"
-		return "";
-		
-	size_t i = 1;
-	while (i < extension.size())
-	{
-		if (!std::isalnum(static_cast<unsigned char>(extension[i++])))
-			return "";
-	}
-
-	return extension;
-}
-
 RequestHandler	HttpConnexion::dispatch_request(const http::Request &request)
 {	
-	std::string Extention = HttpConnexion::get_request_extention(request);
+	std::string Extention = request.get_extention();
 
 	if (Extention.empty())
 		return NULL;											//CHOSIR QUOI FAIRE (quand il n'existe pas d'extention)
@@ -164,9 +132,9 @@ short HttpConnexion::events() const
 {
 	switch (_state)
 	{
-		case PERFORM_WRITE_HEAD: return POLLOUT;
-		case PERFORM_WRITE_BODY: return POLLOUT;
-		case PERFORM_READ: return POLLIN;
+		case PERFORM_WRITE_HEAD		: return POLLOUT;
+		case PERFORM_WRITE_BODY		: return POLLOUT;
+		case PERFORM_READ			: return POLLIN;
 		case WAIT_FOR_CHILD_RESPONSE: return 0;
 		default: throw std::runtime_error("unreachable");
 	}
