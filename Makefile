@@ -16,6 +16,8 @@ LIB_HTTP_SRCS =\
 	src/http/Request.cpp \
 	src/http/Response.cpp \
 	src/http/URL.cpp \
+	src/http/PlainBody.cpp \
+	src/http/AStreamableBody.cpp \
 
 LIB_NET_SRCS =\
 	src/net/Fd.cpp \
@@ -37,8 +39,8 @@ SRCS =\
 	src/HttpConnexion.cpp \
 	src/HttpConnexionFactory.cpp \
 	src/RequestParser.cpp \
-    src/CGI/CGIHandler.cpp \
-	
+	src/CGI/CGIHandler.cpp \
+
 TESTS_SRCS =\
 	tests/test_lib.cpp\
 	tests/test_parsing_conf.cpp \
@@ -48,7 +50,6 @@ NET_EXAMPLE_SRCS =\
 	src/net/example/EchoTask.cpp\
 	src/net/example/EchoTaskFactory.cpp\
 	src/net/example/server.cpp\
-
 
 OBJS = $(SRCS:src/%.cpp=obj/%.o)
 DEPS = $(OBJS:.o=.d)
@@ -79,7 +80,6 @@ obj/%.o: src/%.cpp
 	@mkdir -p $(dir $@)
 	$(CXX) $(CXXFLAGS) $(INCLUDES) -MMD -MP -c $< -o $@
 
-
 -include $(DEPS)
 
 run_tests: $(TESTS_OBJS) $(TESTS)
@@ -88,7 +88,6 @@ run_tests: $(TESTS_OBJS) $(TESTS)
 tests/bin/%.out: tests/%.cpp
 	@mkdir -p $(dir $@)
 	$(CXX) $(CXXFLAGS) $(INCLUDES) $(TESTS_OBJS) $< -o $@
-
 
 clean:
 	rm -rf obj

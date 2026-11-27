@@ -49,7 +49,7 @@ public:
 	short events() const;
 
 	void 					on_child_finished(net::PollTask*);
-	static ft::string_view 	get_request_extention(const http::Request &req);
+	static std::string	 	get_request_extention(const http::Request &req);
 
 };
 

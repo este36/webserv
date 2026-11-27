@@ -5,7 +5,8 @@ HttpConnexion::HttpConnexion(
 			net::TCPClient *client, 
 			const ServerConfig& server_config) :
 	_server_config(server_config),
-	_client(client)
+	_client(client),
+	_state(PERFORM_READ)										//comment(antuel): initialitation pour n'avoir pas d'information poubelle.
 {}
 
 
@@ -20,7 +21,7 @@ Exemple d'extentixon:
 	GET /index.html HTTP/1.1
 	GET /images/logo.png HTTP/1.1
 */
-ft::string_view		HttpConnexion::get_request_extention(const http::Request &req)
+std::string	HttpConnexion::get_request_extention(const http::Request &req)
 {
     const std::string &path = req.head.uri.path;
 
@@ -32,7 +33,7 @@ ft::string_view		HttpConnexion::get_request_extention(const http::Request &req)
 	if (dot == std::string::npos)
 		return "";													//si il n'existe pas de "."
 
-	ft::string_view extension = path.substr(dot);
+	std::string extension = path.substr(dot);
 
 	if (extension.find('/') != std::string::npos)					//si l'extention a un "/"
 		return "";
@@ -49,7 +50,7 @@ ft::string_view		HttpConnexion::get_request_extention(const http::Request &req)
 
 RequestHandler	HttpConnexion::dispatch_request(const http::Request &request)
 {	
-	ft::string_view Extention = HttpConnexion::get_request_extention(request);
+	std::string Extention = HttpConnexion::get_request_extention(request);
 
 	if (Extention.empty())
 		return NULL;											//CHOSIR QUOI FAIRE (quand il n'existe pas d'extention)
@@ -75,7 +76,6 @@ void HttpConnexion::prepare_response()
 
 	_head_buffer += ft::to_string(_response.head());
 }
-
 
 net::PollTask::Result	HttpConnexion::resume(short revents)
 {
