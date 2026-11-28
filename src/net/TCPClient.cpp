@@ -14,6 +14,13 @@ TCPClient::TCPClient(int fd) : _fd(fd)
 ssize_t TCPClient::receive()
 {
 	ssize_t n = recv(_fd.get(), recv_temp_buffer, recv_temp_buffer_capacity, 0);
+
+	if (n == -1)
+	{
+		recv_temp_buffer_length = 0;
+		return -1;
+	}
+
 	recv_temp_buffer_length = n;
 	return (n < recv_temp_buffer_capacity ? 0 : n ); // return 0 if there is not anymore data to receive
 }

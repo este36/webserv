@@ -50,10 +50,11 @@ NET_EXAMPLE_SRCS =\
 
 
 OBJS = $(SRCS:src/%.cpp=obj/%.o)
-DEPS = $(OBJS:.o=.d)
 TESTS = $(TESTS_SRCS:tests/%.cpp=tests/bin/%.out)
 TESTS_OBJS = $(filter-out obj/main.o,$(OBJS))
 NET_EXAMPLE_OBJS = $(filter-out obj/main.o,$(OBJS)) $(NET_EXAMPLE_SRCS:src/%.cpp=obj/%.o)
+
+DEPS = $(sort $(OBJS:.o=.d) $(NET_EXAMPLE_DEPS:.o=.d) $(TESTS_OBJS:.o=.d))
 
 .PHONY: all clean fclean re test_cgi tests
 

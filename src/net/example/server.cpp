@@ -7,6 +7,8 @@ int main(void)
 {
 	net::PollScheduler scheduler;
 
+	scheduler.setup_signal_handlers();
+
 	scheduler.add(
 		new net::TCPListener(
 			"localhost",

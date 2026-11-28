@@ -43,8 +43,8 @@ class PollScheduler
 	PollScheduler(const PollScheduler&);
 	PollScheduler& operator=(const PollScheduler&);
 
-	TaskEntry	*task_add(PollTask *task);
 	void		task_stop(TaskEntry *entry);
+	TaskEntry	*create_entry(PollTask *task);
 	void 		delete_entry(TaskEntry* task);
 
 public:
