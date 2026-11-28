@@ -189,6 +189,15 @@ void PollScheduler::run()
 				std::size_t parent_index = std::distance(entry->parent->children.begin(), element);
 				ft::remove_unordered(entry->parent->children, parent_index);
 				entry->parent->task->on_child_finished(entry->task);
+				
+				for (size_t k = 0; k < _pollfds.size(); ++k)	// debug: parche pour que le parent puisse mettre à jour son pollfd (par exemple, pour passer de POLLIN à POLLOUT)
+				{
+					if (_pollfds[k].fd == entry->parent->task->fd())
+					{
+						_pollfds[k].events = entry->parent->task->events();
+						break;
+					}
+				}
 			}
 			delete_entry(_dead_tasks[i]);
 		}

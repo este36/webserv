@@ -3,7 +3,7 @@
 #include "ConfigParser.hpp"
 #include "Server.hpp"
 
-//main test pour le serveur. Il parse le fichier de configuration, crée un serveur et le lance.
+//debug: main test pour le serveur. Il parse le fichier de configuration, crée un serveur et le lance.
 int main(int argc, char **argv)
 {
     if (argc != 2)
