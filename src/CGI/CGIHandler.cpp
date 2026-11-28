@@ -2,6 +2,7 @@
 #include "HttpConnexion.hpp"
 #include "LocationConfig.hpp"
 #include "RequestHandler.hpp"
+#include "ft/utils.hpp"
 #include <iostream>
 
 
@@ -52,6 +53,7 @@ CGIHandler::CGIHandler(	const ServerConfig& server_config,
 	, _pipe_out()
 	, _child_pid(-1)
 	, _child_finished(false)
+	, _body_offset(0)
 {
 	_execute_cgi(script_path, interpreter);
 }
@@ -63,6 +65,19 @@ CGIHandler::CGIHandler(	const ServerConfig& server_config,
 net::PollTask::Result CGIHandler::resume(short revents)
 {
 	(void)revents; // Supprimer l'avertissement de variable non utilisée
+
+	if (revents & POLLOUT && _pipe_in.get() != -1)
+	{
+		ssize_t bytes_written = write(_pipe_in.get(), _request.body.c_str() + _body_offset, _request.body.size() - _body_offset);
+    
+		if (bytes_written > 0)
+			_body_offset += bytes_written;
+
+		if (_body_offset >= _request.body.size())
+		    _pipe_in.reset();
+        
+    return Result(net::PollTask::WAIT);
+	}
 
 	if (_child_finished)
 		return net::PollTask::FINISHED;
@@ -90,7 +105,18 @@ net::PollTask::Result CGIHandler::resume(short revents)
 			_response.head().status_code = 500;
 		else
 		{
+			std::string headers_raw = _output_buffer.substr(0, header_end);
 			std::string 	body = _output_buffer.substr(header_end + 4);
+
+			size_t colon = headers_raw.find(':');
+			if (colon != std::string::npos)
+			{
+				std::string header_name = headers_raw.substr(0, colon);
+				std::string header_value = headers_raw.substr(colon + 1);
+				
+				_response.head().headers.push_back(std::make_pair(header_name, header_value)); //comment: On ajoute le header retourné par le CGI à la réponse HTTP
+			}
+
 			_response.head().status_code = 200;
 			_response.set_body(new http::PlainBody(body));
 		}
@@ -112,6 +138,9 @@ int CGIHandler::fd() const
 	if (_child_finished)
     	return -1;
 
+	if (_pipe_in.get() != -1)			// Si le pipe d'entrée est ouvert, on retourne son descripteur pour surveiller les événements d'écriture
+		return _pipe_in.get();
+
 	return _pipe_out.get();
 }
 
@@ -121,7 +150,10 @@ short CGIHandler::events() const
 	if (_child_finished)
     	return 0;
 
-	return POLLIN;
+	if (_pipe_in.get() != -1)
+		return POLLOUT; // Si le pipe d'entrée est ouvert, on veut écrire dedans (pour envoyer le body de la requête au CGI)
+	else
+		return POLLIN;
 }
 
 // Cette fonction est appelée par le RequestHandler pour créer un 
@@ -192,13 +224,25 @@ void CGIHandler::_execute_cgi(const std::string &script_path, const std::string 
 		close(pipe_out[1]);
 
 		std::string env_path = "PATH=/usr/local/bin:/usr/bin:/bin";
-		std::string env_method = "REQUEST_METHOD=GET"; // Hardcoded 
+		
+		std::string env_method_str = "REQUEST_METHOD=";
+		if (_request.head.method == http::METHOD_GET) 
+			env_method_str += "GET";
+		else if (_request.head.method == http::METHOD_POST)
+			env_method_str += "POST";
+		else if (_request.head.method == http::METHOD_DELETE)
+			env_method_str += "DELETE";
+
+		std::string env_query = "QUERY_STRING=" + _request.head.uri.query;
+		std::string env_length = "CONTENT_LENGTH=" + ft::to_string(_request.body.size()); // Si es POST
 		std::string env_gateway = "GATEWAY_INTERFACE=CGI/1.1";
 		std::string env_script = "SCRIPT_FILENAME=" + script_path;
 
 		char *envp[] = {
 			const_cast<char*>(env_path.c_str()),
-			const_cast<char*>(env_method.c_str()),
+			const_cast<char*>(env_method_str.c_str()),
+			const_cast<char*>(env_query.c_str()),
+			const_cast<char*>(env_length.c_str()),
 			const_cast<char*>(env_gateway.c_str()),
 			const_cast<char*>(env_script.c_str()),
 			NULL

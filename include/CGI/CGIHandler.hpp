@@ -28,6 +28,7 @@ class CGIHandler : public net::PollTask
 		pid_t 					_child_pid;
 		std::string 			_output_buffer;
 		bool 					_child_finished;
+		size_t 					_body_offset; 					// pour suivre combien de données du body de la requête ont été écrites dans le pipe d'entrée du CGI
 
 	void _execute_cgi(const std::string &script_path, const std::string &interpreter);	
 		
